@@ -229,7 +229,6 @@ alias vim=nvim
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-eval "$(thefuck --alias)"
 eval "$(starship init zsh)"
 eval "$(tmuxifier init -)"
 eval "$(zoxide init zsh)"
@@ -242,6 +241,7 @@ export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH
 export PATH=$HOME/.local/bin:$PATH
 
 source ~/.miniconda3/bin/activate
+eval "$(thefuck --alias)"
 
 # if [ -z "$TMUX" ]; then
 #     tmux attach || exec tmux new-session;
