@@ -241,6 +241,8 @@ eval "$(zoxide init zsh)"
 export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH
 export PATH=$HOME/.local/bin:$PATH
 
+source ~/.miniconda3/bin/activate
+
 # if [ -z "$TMUX" ]; then
 #     tmux attach || exec tmux new-session;
 # fi

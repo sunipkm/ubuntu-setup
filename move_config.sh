@@ -87,3 +87,14 @@ tar -xvf dotpkgs.txz -C $HOME/
 cp -rv dotfiles/* $HOME/
 
 echo "Install vscode from the website."
+
+# miniconda
+cd /tmp && wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+chmod +x Miniconda3-latest-Linux-x86_64.sh
+./Miniconda3-latest-Linux-x86_64.sh -b -u -p /home/$USER/.miniconda3
+source /home/$USER/.miniconda3/bin/activate
+conda config --set changeps1 false
+
+# necessary python packages
+pip install numpy matplotlib xarray netcdf4 astropy scipy scikit-image natsort
+pip install skmpython@git+https://github.com/sunipkm/skmpython
