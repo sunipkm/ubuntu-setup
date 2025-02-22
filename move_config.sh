@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 if ! which zsh &> /dev/null; then
     echo "zsh not found, installing zsh"
     sudo apt update
