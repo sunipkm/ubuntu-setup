@@ -50,16 +50,14 @@ ssh-keygen -t ed25519 -C "$(whoami)@$(hostname)"
 
 # Fonts
 SPWD=$(pwd)
-tar -xf fonts/source_code_pro.txz -C /tmp && cd /tmp/SourceCodePro
-for font_file in *.ttf *.otf; do
+tar -xf fonts/source_code_pro.txz -C /tmp
+for font_file in /tmp/SourceCodePro/*.ttf; do
     sudo cp "$font_file" /usr/share/fonts/truetype/
 done
-cd $SPWD
-tar -xf fonts/cascadia_code.txz -C /tmp && cd /tmp/CascadiaCode
-for font_file in *.ttf *.otf; do
+tar -xf fonts/cascadia_code.txz -C /tmp
+for font_file in /tmp/CascadiaCode/*.ttf; do
     sudo cp "$font_file" /usr/share/fonts/truetype/
 done
-cd $SPWD
 sudo fc-cache -f -v
 
 curl -sS https://starship.rs/install.sh | sh                                                                                                                                                                                                      ─╯
