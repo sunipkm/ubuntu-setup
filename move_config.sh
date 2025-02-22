@@ -94,5 +94,5 @@ source /home/$USER/.miniconda3/bin/activate
 conda config --set changeps1 false
 
 # necessary python packages
-pip install numpy matplotlib xarray netcdf4 astropy scipy scikit-image natsort
+pip install numpy matplotlib xarray netcdf4 astropy scipy scikit-image natsort fortls
 pip install skmpython@git+https://github.com/sunipkm/skmpython
