@@ -5,6 +5,7 @@ if ! which zsh &> /dev/null; then
     sudo apt install zsh
     chsh -s /usr/bin/zsh
     exit 1
+    echo "Reboot the system before proceeding. After restarting, run terminal, and leave zsh unconfigured."
 fi
 USER=$(whoami)
 sudo chown -R $USER:root /usr/local
