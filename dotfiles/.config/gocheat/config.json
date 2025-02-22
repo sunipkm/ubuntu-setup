@@ -1,0 +1,120 @@
+{
+  "items": [
+    {
+      "tag": "nvim",
+      "title": "nvim tree : ctrl + n"
+    },
+    {
+      "tag": "nvim",
+      "title": "open floating terminal : alt + l"
+    },
+    {
+      "tag": "tmux",
+      "title": "tmux prefix : ctrl + space"
+    },
+  {
+    "tag": "tmux",
+    "title": "reload config file : prefix + r"
+  },
+  {
+    "tag": "tmux",
+    "title": "select pane : ctrl + ←/→/↑/↓"
+  },
+  {
+    "tag": "tmux",
+    "title": "enter copy mode : prefix + v"
+  },
+  {
+    "tag": "tmux",
+    "title": "begin selection in copy mode : v"
+  },
+  {
+    "tag": "tmux",
+    "title": "copy selection in copy mode : y"
+  },
+  {
+    "tag": "tmux",
+    "title": "resize pane (fine) : shift + ←/→/↑/↓"
+  },
+  {
+    "tag": "tmux",
+    "title": "split window vertically : prefix + -"
+  },
+  {
+    "tag": "tmux",
+    "title": "split window horizontally : prefix + \\"
+  },
+  {
+    "tag": "tmux",
+    "title": "new window : prefix + c"
+  },
+  {
+    "tag": "tmux",
+    "title": "break pane into new window : prefix + b"
+  },
+    {
+      "tag": "tmux",
+      "title": "swap panes : prefix + {/}"
+    },
+    {
+      "tag": "tmux",
+      "title": "save session : prefix + ctrl + s"
+    },
+    {
+      "tag": "tmux",
+      "title": "navigate panes : ctrl + ←/→/↑/↓"
+    },
+    {
+      "tag": "tmux",
+      "title": "switch to session : prefix + w"
+    },
+    {
+      "tag": "tmux",
+      "title": "rename session : prefix + ':rename'"
+    },
+    {
+      "tag": "scripts",
+      "title": "start/stop recording screen : alt + ctrl + v"
+    },
+    {
+      "tag": "scripts",
+      "title": "camera on screen : alt + ctrl + s"
+    },
+    {
+      "tag": "scripts",
+      "title": "mount encrypted drive : alt + ctrl + o"
+    },
+    {
+      "tag": "scripts",
+      "title": "unmount encrypted drive : alt + ctrl + c"
+    },
+    {
+      "tag": "scripts",
+      "title": "change wallpaper : alt + ctrl + w"
+    },
+    {
+      "tag": "scripts",
+      "title": "open today.md file : alt + n"
+    },
+    {
+      "tag": "scripts",
+      "title": "open bookmarks file : alt + b"
+    },
+    {
+      "tag": "scripts",
+      "title": "open ncmpcpp music : alt + ctrl + m"
+    },
+    {
+      "tag": "media",
+      "title": "brightness : XF86MonBrightnessDown/Up"
+    },
+    {
+      "tag": "media",
+      "title": "volume up/down : ctrl + shift + ↑/↓"
+    }
+  ],
+  "styles": {
+    "accent": "#b4befe",
+    "subtext": "#6c7086"
+  }
+}

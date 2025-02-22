@@ -1,0 +1,5 @@
+# Usual suspects
+.DS_Store
+Thumbs.db
+
+dotpkgs

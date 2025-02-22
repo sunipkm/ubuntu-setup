@@ -1,0 +1,182 @@
+{
+    "application.shellEnvironmentResolutionTimeout": 60,
+    "editor.fontFamily": "'CaskaydiaCove NFM', mono",
+    "editor.fontLigatures": true,
+    "editor.wordWrap": "on",
+    "latex-workshop.view.pdf.viewer": "tab",
+    "editor.minimap.enabled": false,
+    "latex-workshop.synctex.afterBuild.enabled": true,
+    "files.eol": "\n",
+    "files.exclude": {
+        "**/desktop.ini": true,
+        "**/Thumb.db": true,
+        "**/Thumbs.db": true
+    },
+    "latex-workshop.intellisense.unimathsymbols.enabled": true,
+    "latex-workshop.latex.recipe.default": "lastUsed",
+    "latex-workshop.latex.tools": [
+        {
+            "name": "latexmk",
+            "command": "latexmk",
+            "args": [
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "-pdf",
+                "-outdir=%OUTDIR%",
+                "%DOC%"
+            ],
+            "env": {}
+        },
+        {
+            "name": "latexmk2.0",
+            "command": "latexmk",
+            "args": [
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "-xelatex",
+                "--shell-escape",
+                "-outdir=%OUTDIR%",
+                "%DOC%"
+            ],
+            "env": {}
+        },
+        {
+            "name": "lualatexmk",
+            "command": "latexmk",
+            "args": [
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "-lualatex",
+                "-outdir=%OUTDIR%",
+                "%DOC%"
+            ],
+            "env": {}
+        },
+        {
+            "name": "latexmk_rconly",
+            "command": "latexmk",
+            "args": [
+                "%DOC%"
+            ],
+            "env": {}
+        },
+        {
+            "name": "pdflatex",
+            "command": "pdflatex",
+            "args": [
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "%DOC%"
+            ],
+            "env": {}
+        },
+        {
+            "name": "bibtex",
+            "command": "bibtex",
+            "args": [
+                "%DOCFILE%"
+            ],
+            "env": {}
+        }
+    ],
+    "latex-workshop.latex.recipes":[
+        {
+            "name": "latexmk 🔃",
+            "tools": [
+                "latexmk"
+            ]
+        },
+        {
+            "name": "latexmk 🏴‍☠️",
+            "tools": [
+                "latexmk2.0"
+            ]
+        },
+        {
+            "name": "latexmk (latexmkrc)",
+            "tools": [
+                "latexmk_rconly"
+            ]
+        },
+        {
+            "name": "latexmk (lualatex)",
+            "tools": [
+                "lualatexmk"
+            ]
+        },
+        {
+            "name": "pdflatex ➞ bibtex ➞ pdflatex × 2",
+            "tools": [
+                "pdflatex",
+                "bibtex",
+                "pdflatex",
+                "pdflatex"
+            ]
+        }
+    ],
+    "spellchecker.ignoreRegExp": [
+        "/^\\\\"
+    ],
+    "python.defaultInterpreterPath": "/Users/sunip/.anaconda3/bin/python",
+    "files.autoSave": "afterDelay",
+    "C_Cpp.default.cStandard": "gnu11",
+    "C_Cpp.default.cppStandard": "c++17",
+    "doxdocgen.generic.authorEmail": "sunipkmukherjee@gmail.com",
+    "doxdocgen.generic.authorName": "Sunip K. Mukherjee",
+    "C_Cpp.default.includePath": [
+        "${HOMEBREW_REPOSITORY}/include",
+        "${workspaceFolder}/**"
+    ],
+    "files.watcherExclude": {
+        "**/*.gif": true,
+        "**/*.png": true,
+        "**/*.nc": true,
+        "**/*.fit": true,
+        "**/.ipynb_checkpoints": true
+    },
+    "[python]": {
+        "editor.formatOnType": true,
+        "editor.defaultFormatter": "ms-python.autopep8"
+    },
+    "editor.inlineSuggest.enabled": true,
+    "github.copilot.enable": {
+        "*": true,
+        "plaintext": true,
+        "markdown": false,
+        "scminput": false,
+        "yaml": false
+    },
+    "jupyter.interactiveWindow.creationMode": "perFile",
+    "editor.accessibilitySupport": "off",
+    "git.autofetch": true,
+    "arduino.useArduinoCli": true,
+    "arduino.path": "/opt/homebrew/bin/",
+    "arduino.commandPath": "arduino-cli",
+    "[c]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    "editor.unicodeHighlight.invisibleCharacters": false,
+    "rust-analyzer.check.command": "clippy",
+    "svelte.enable-ts-plugin": true,
+    "cmake.configureOnOpen": false,
+    "interactiveWindow.executeWithShiftEnter": true,
+    "terminal.integrated.enableImages": true,
+    "terminal.integrated.fontFamily": "monospace",
+    "indentRainbow.excludedLanguages": [
+        "rust",
+        "json",
+        "toml",
+        "latex",
+        "tex",
+        "plaintext"
+    ],
+    "indentRainbow.indicatorStyle": "light",
+    "mesonbuild.downloadLanguageServer": true,
+    "window.titleBarStyle": "custom",
+    "rust-analyzer.check.features": "all",
+    "python.REPL.sendToNativeREPL": false,
+}
