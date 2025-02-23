@@ -1,30 +1,25 @@
 #!/bin/bash
-SPWD=$(pwd)
-USER=$(whoami)
+# the directory of the script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# update git name and email
-echo -n "Enter email for git: "
-input=
-while [[ $input = "" ]]; do
-   read input
-done
-git config --global user.email "$input"
+# the temp directory used, within $DIR
+# omit the -p parameter to create a temporal directory in the default location
+WORK_DIR=`mktemp -d`
 
-echo -n "Enter user name (in full) for git: "
-input=
-while [[ $input = "" ]]; do
-   read input
-done
-git config --global user.name "$input"
-
-if ! which zsh &> /dev/null; then
-    echo "zsh not found, installing zsh"
-    sudo apt update
-    sudo apt install zsh
-    chsh -s /usr/bin/zsh
-    echo "Reboot the system before proceeding. After restarting, run terminal, and leave zsh unconfigured."
-    exit 1
+# check if tmp dir was created
+if [[ ! "$WORK_DIR" || ! -d "$WORK_DIR" ]]; then
+  echo "Could not create temp dir"
+  exit 1
 fi
+
+# deletes the temp directory
+function cleanup {      
+  rm -rf "$WORK_DIR"
+}
+
+# register the cleanup function to be called on the EXIT signal
+trap cleanup EXIT
+
 echo "Setting write permission to /usr/local..."
 sudo chown -R $USER:root /usr/local > /dev/null
 echo "System upgrade..."
@@ -78,14 +73,20 @@ fi
 
 # Fonts
 echo "Installing fonts..."
-tar -xf fonts/source_code_pro.txz -C /tmp
-for font_file in /tmp/SourceCodePro/*.ttf; do
+NERDFONT_VERSION=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
+echo "Installing nerd fonts..."
+cd $WORK_DIR
+rm -vf *.ttf # delete all font files in there
+echo "Downloading Cascadia Code..."
+curl -Lo CascadiaCode.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/CascadiaCode.tar.xz"
+tar xf CascadiaCode.tar.xz
+echo "Downloading SourceCodePro..."
+curl -Lo SourceCodePro.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/SourceCodePro.tar.xz"
+tar xf SourceCodePro.tar.xz
+for font_file in $WORK_DIR/*.ttf; do
     sudo cp "$font_file" /usr/share/fonts/truetype/
 done
-tar -xf fonts/cascadia_code.txz -C /tmp
-for font_file in /tmp/CascadiaCode/*.ttf; do
-    sudo cp "$font_file" /usr/share/fonts/truetype/
-done
+cd $DIR
 echo "Updating font cache..."
 sudo fc-cache -f -v > /dev/null
 
@@ -104,20 +105,15 @@ else
     . "$HOME/.cargo/env"
 fi
 
-if ! which thefuck &> /dev/null; then
-    echo "Installing thefuck..."
-    cd /tmp && rm -rf thefuck && git clone https://github.com/mbridon/thefuck.git && /usr/bin/python3 -m pip uninstall --break-system-packages thefuck && /usr/bin/python3 -m pip install -e ./thefuck --break-system-packages && cd $SPWD
-fi
-
 # Lazygit
 if ! which lazygit &> /dev/null; then
     echo "Installing lazygit..."
     LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
-    cd /tmp
+    cd $WORK_DIR
     curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
     tar xf lazygit.tar.gz lazygit
     install lazygit -D -t /usr/local/bin/
-    cd $SPWD
+    cd $DIR
 fi
 
 # termdown
@@ -134,20 +130,20 @@ fi
 
 # copy all dotfiles
 echo "Extracting dotpackages..."
-tar -xf $SPWD/dotpkgs.txz -C $HOME/
+tar -xf $DIR/dotpkgs.txz -C $HOME/
 echo "Copying dotfiles..."
-cp -r $SPWD/dotfiles/. $HOME/
+cp -r $DIR/dotfiles/. $HOME/
 
 
 # miniconda
 if ! [ -f "/home/$USER/.miniconda3/bin/activate" ]; then
     echo "Installing python..."
-    cd /tmp && wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    cd $WORK_DIR && wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
     chmod +x Miniconda3-latest-Linux-x86_64.sh
     ./Miniconda3-latest-Linux-x86_64.sh -b -u -p /home/$USER/.miniconda3
     source /home/$USER/.miniconda3/bin/activate
     conda config --set changeps1 false
-    cd $SPWD
+    cd $DIR
 else
     source /home/$USER/.miniconda3/bin/activate
 fi
@@ -156,5 +152,19 @@ fi
 pip install numpy matplotlib xarray netcdf4 astropy scipy scikit-image natsort fortls
 pip install skmpython@git+https://github.com/sunipkm/skmpython
 
+if ! which thefuck &> /dev/null; then
+    echo "Installing thefuck..."
+    cd $WORK_DIR && rm -rf thefuck && git clone https://github.com/mbridon/thefuck.git && pip uninstall thefuck && pip install -e ./thefuck && cd $DIR
+fi
+
 echo -e "\n\nDisable the Ctrl + . weirdness using ibus-setup if on Ubuntu < 24.04.\n\n"
 echo "Install vscode from the website."
+
+if ! which zsh &> /dev/null; then
+    echo "zsh not found, installing zsh"
+    sudo apt update
+    sudo apt install zsh
+    chsh -s /usr/bin/zsh
+    echo "Reboot the system before proceeding. After restarting, run terminal, and leave zsh unconfigured."
+    exit 1
+fi
