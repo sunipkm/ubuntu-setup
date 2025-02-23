@@ -149,7 +149,7 @@ else
 fi
 
 # necessary python packages
-pip install numpy matplotlib xarray netcdf4 astropy scipy scikit-image natsort fortls
+pip install numpy matplotlib xarray netcdf4 astropy scipy scikit-image natsort fortls ipykernel
 pip install skmpython@git+https://github.com/sunipkm/skmpython
 
 if ! which thefuck &> /dev/null; then
@@ -158,7 +158,22 @@ if ! which thefuck &> /dev/null; then
 fi
 
 echo -e "\n\nDisable the Ctrl + . weirdness using ibus-setup if on Ubuntu < 24.04.\n\n"
-echo "Install vscode from the website."
+
+if ! which code &> /dev/null; then
+    echo "Installing vscode..."
+    sudo apt-get install -y wget gpg> /dev/null
+    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+    sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
+    sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
+    sudo apt-get install -y apt-transport-https > /dev/null
+    sudo apt-get install -y code > /dev/null
+    sudo apt-get -f install -y > /dev/null
+
+    while read -r line; do
+        code --install-extension "$line";
+    done < "extensions.txt"
+fi
+sudo apt-get autoremove
 
 if ! which zsh &> /dev/null; then
     echo "zsh not found, installing zsh"
