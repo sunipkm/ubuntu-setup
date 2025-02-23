@@ -23,7 +23,8 @@ trap cleanup EXIT
 echo "Setting write permission to /usr/local..."
 sudo chown -R $USER:root /usr/local > /dev/null
 echo "System upgrade..."
-sudo apt update && sudo apt upgrade -y
+sudo apt-get update > /dev/null
+sudo apt-get upgrade -y > /dev/null
 echo "Some essential packages..."
 sudo apt-get install -y curl > /dev/null
 sudo apt-get install -y build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran python3-pip > /dev/null
@@ -112,7 +113,7 @@ if ! which lazygit &> /dev/null; then
     cd $WORK_DIR
     curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
     tar xf lazygit.tar.gz lazygit
-    install lazygit -D -t /usr/local/bin/
+    install lazygit -D -t $HOME/.local/bin/
     cd $DIR
 fi
 
@@ -166,6 +167,7 @@ if ! which code &> /dev/null; then
     sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
     sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
     sudo apt-get install -y apt-transport-https > /dev/null
+    sudo apt-get update > /dev/null
     sudo apt-get install -y code > /dev/null
     sudo apt-get -f install -y > /dev/null
 
