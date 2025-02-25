@@ -122,7 +122,8 @@ if ! which nvim &> /dev/null; then
     NEOVIM_VERSION=$(curl -s "https://api.github.com/repos/neovim/neovim/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
     cd $WORK_DIR
     curl -Lo neovim.tar.gz "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux-x86_64.tar.gz"
-    tar xf neovim.tar.gz -C /usr/local/
+    tar xf neovim.tar.gz
+    cp -r nvim-linux-x86_64/. /usr/local
     cd $DIR
 fi
 
