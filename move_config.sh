@@ -67,7 +67,7 @@ mkdir -p ~/.local/bin > /dev/null
 ln -s /usr/bin/batcat ~/.local/bin/bat &> /dev/null
 
 # Generate ssh key
-if ! [ -f "$HOME/.ssh/id_ed25519" ]; then
+if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
     echo "Generating ssh key with the ed25519 algorithm..."
     ssh-keygen -t ed25519 -C "$(whoami)@$(hostname)"
 fi
@@ -88,6 +88,7 @@ for font_file in $WORK_DIR/*.ttf; do
     sudo cp "$font_file" /usr/share/fonts/truetype/
 done
 cd $DIR
+sudo apt-get install -y ttf-mscorefonts-installer > /dev/null
 echo "Updating font cache..."
 sudo fc-cache -f -v > /dev/null
 
@@ -137,28 +138,26 @@ cp -r $DIR/dotfiles/. $HOME/
 
 
 # miniconda
-if ! [ -f "/home/$USER/.miniconda3/bin/activate" ]; then
+if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
     echo "Installing python..."
     cd $WORK_DIR && wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
     chmod +x Miniconda3-latest-Linux-x86_64.sh
-    ./Miniconda3-latest-Linux-x86_64.sh -b -u -p /home/$USER/.miniconda3
-    source /home/$USER/.miniconda3/bin/activate
+    ./Miniconda3-latest-Linux-x86_64.sh -b -u -p $HOME/.miniconda3
+    source $HOME/.miniconda3/bin/activate
     conda config --set changeps1 false
     cd $DIR
 else
-    source /home/$USER/.miniconda3/bin/activate
+    source $HOME/.miniconda3/bin/activate
 fi
 
 # necessary python packages
-pip install numpy matplotlib xarray netcdf4 astropy scipy scikit-image natsort fortls ipykernel
+pip install numpy matplotlib xarray netcdf4 astropy scipy scikit-image natsort fortls ipykernel jupyter
 pip install skmpython@git+https://github.com/sunipkm/skmpython
 
 if ! which thefuck &> /dev/null; then
     echo "Installing thefuck..."
     cd $WORK_DIR && rm -rf thefuck && git clone https://github.com/mbridon/thefuck.git && pip uninstall thefuck && pip install -e ./thefuck && cd $DIR
 fi
-
-echo -e "\n\nDisable the Ctrl + . weirdness using ibus-setup if on Ubuntu < 24.04.\n\n"
 
 if ! which code &> /dev/null; then
     echo "Installing vscode..."
@@ -175,13 +174,14 @@ if ! which code &> /dev/null; then
         code --install-extension "$line";
     done < "extensions.txt"
 fi
-sudo apt-get autoremove
+sudo apt-get autoremove -y
 
 if ! which zsh &> /dev/null; then
     echo "zsh not found, installing zsh"
-    sudo apt update
-    sudo apt install zsh
+    sudo apt-get update > /dev/null
+    sudo apt-get install zsh -y > /dev/null
     chsh -s /usr/bin/zsh
     echo "Reboot the system before proceeding. After restarting, run terminal, and leave zsh unconfigured."
-    exit 1
 fi
+
+echo -e "\n\nDisable the Ctrl + . weirdness using ibus-setup if on Ubuntu < 24.04.\n\n"

@@ -1,7 +1,8 @@
 # Ubuntu Setup
 Execute the following command to get started:
 ```sh
-$ wget -O - https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/bootstrap.sh | bash
+$ sudo apt-get update && sudo apt-get install -y curl
+$ curl -sSf https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/bootstrap.sh | bash
 ```
 
 ## Operations
