@@ -87,18 +87,17 @@ for font_file in $WORK_DIR/*.ttf; do
     sudo cp "$font_file" /usr/share/fonts/truetype/
 done
 cd $DIR
-sudo apt-get install -y ttf-mscorefonts-installer
 echo "Updating font cache..."
 sudo fc-cache -f -v > /dev/null
 
 if ! which starship &> /dev/null; then
     echo "Installing starship..."
-    curl -sSf https://starship.rs/install.sh | sh
+    curl -sSf https://starship.rs/install.sh | sh -s -- -y
 fi
 
 if ! [ -f "$HOME/.cargo/env" ]; then
     echo "Installing rust compiler..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     . "$HOME/.cargo/env" # source cargo
     rustup target add wasm32-unknown-unknown
     rustup toolchain install nightly
@@ -163,10 +162,10 @@ fi
 pip install numpy matplotlib xarray netcdf4 astropy scipy scikit-image natsort fortls ipykernel jupyter
 pip install skmpython@git+https://github.com/sunipkm/skmpython
 
-if ! which thefuck &> /dev/null; then
-    echo "Installing thefuck..."
-    cd $WORK_DIR && rm -rf thefuck && git clone https://github.com/mbridon/thefuck.git && pip uninstall thefuck && pip install -e ./thefuck && cd $DIR
-fi
+# if ! which thefuck &> /dev/null; then
+#     echo "Installing thefuck..."
+#     cd $WORK_DIR && rm -rf thefuck && git clone https://github.com/mbridon/thefuck.git && pip uninstall thefuck && pip install -e ./thefuck && cd $DIR
+# fi
 
 if ! which code &> /dev/null; then
     echo "Installing vscode..."
@@ -210,3 +209,4 @@ if ! which zsh &> /dev/null; then
 fi
 
 echo -e "\n\nDisable the Ctrl + . weirdness using ibus-setup if on Ubuntu < 24.04.\n\n"
+echo -e "Run the following command to install the proprietary Microsoft core fonts:\nsudo apt-get install -y ttf-mscorefonts-installer"
