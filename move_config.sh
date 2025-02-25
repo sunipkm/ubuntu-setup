@@ -56,7 +56,6 @@ sudo apt-get install -y fzf > /dev/null
 sudo apt-get install -y eza > /dev/null
 sudo apt-get install -y bat > /dev/null
 sudo apt-get install -y tmux > /dev/null
-sudo apt-get install -y neovim > /dev/null
 sudo apt-get install -y openssh-server openssh-client > /dev/null
 sudo apt-get install -y ripgrep jq fd-find > /dev/null
 sudo apt-get install -y libssl-dev > /dev/null
@@ -115,6 +114,15 @@ if ! which lazygit &> /dev/null; then
     curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
     tar xf lazygit.tar.gz lazygit
     install lazygit -D -t $HOME/.local/bin/
+    cd $DIR
+fi
+
+if ! which nvim &> /dev/null; then
+    echo "Installing neovim..."
+    NEOVIM_VERSION=$(curl -s "https://api.github.com/repos/neovim/neovim/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
+    cd $WORK_DIR
+    curl -Lo neovim.tar.gz "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux-x86_64.tar.gz"
+    tar xf neovim.tar.gz -C /usr/local/
     cd $DIR
 fi
 
