@@ -204,9 +204,9 @@ if ! which zsh &> /dev/null; then
     echo "zsh not found, installing zsh"
     sudo apt-get update > /dev/null
     sudo apt-get install zsh -y > /dev/null
-    chsh -s /usr/bin/zsh
+    echo -e "\n\nExecute the following command to switch to the zsh shell:\nchsh -s /usr/bin/zsh\n"
     echo "Reboot the system before proceeding. After restarting, run terminal, and leave zsh unconfigured."
 fi
 
-echo -e "\n\nDisable the Ctrl + . weirdness using ibus-setup if on Ubuntu < 24.04.\n\n"
+echo -e "\nDisable the Ctrl + . weirdness using ibus-setup if on Ubuntu < 24.04.\n\n"
 echo -e "Run the following command to install the proprietary Microsoft core fonts:\nsudo apt-get install -y ttf-mscorefonts-installer"
