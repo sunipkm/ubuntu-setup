@@ -176,6 +176,22 @@ if ! which code &> /dev/null; then
 fi
 sudo apt-get autoremove -y
 
+# nodejs and yarn
+if ! which node &> /dev/null; then
+    echo "Installing nodejs..."
+    sudo apt-get install -y nodejs > /dev/null
+fi
+
+if ! which npm &> /dev/null; then
+    echo "Installing npm..."
+    sudo apt-get install -y npm > /dev/null
+fi
+
+if ! which yarn &> /dev/null; then
+    echo "Installing yarn..."
+    npm install --global yarn > /dev/null
+fi
+
 if ! which zsh &> /dev/null; then
     echo "zsh not found, installing zsh"
     sudo apt-get update > /dev/null
