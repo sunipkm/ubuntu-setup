@@ -88,7 +88,7 @@ for font_file in $WORK_DIR/*.ttf; do
     sudo cp "$font_file" /usr/share/fonts/truetype/
 done
 cd $DIR
-sudo apt-get install -y ttf-mscorefonts-installer > /dev/null
+sudo apt-get install -y ttf-mscorefonts-installer
 echo "Updating font cache..."
 sudo fc-cache -f -v > /dev/null
 
