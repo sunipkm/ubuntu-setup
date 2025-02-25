@@ -27,33 +27,34 @@ if ! which git &> /dev/null; then
     sudo apt-get update &> /dev/null && sudo apt-get install git git-lfs -y &> /dev/null
 fi
 
-# update git name and email
-GITEMAIL="$(git config --global user.email)"
-ret=$?
-if [ $ret != 0 ]; then
-    echo -n "Enter email for git: "
-    input=
-    while [[ $input = "" ]]; do
-    read input
-    done
-    git config --global user.email "$input"
-else
-    echo "Git global email set to: $GITEMAIL"
-fi
+# # update git name and email
+# GITEMAIL="$(git config --global user.email)"
+# ret=$?
+# if [ $ret != 0 ]; then
+#     echo -n "Enter email for git: "
+#     input=
+#     while [[ $input = "" ]]; do
+#     read input
+#     done
+#     git config --global user.email "$input"
+# else
+#     echo "Git global email set to: $GITEMAIL"
+# fi
 
-GITUSER="$(git config --global user.name)"
-ret=$?
-if [ $ret != 0 ]; then
-    echo -n "Enter user name (in full) for git: "
-    input=
-    while [[ $input = "" ]]; do
-    read input
-    done
-    git config --global user.name "$input"
-else
-    echo "Git global username set to: $GITUSER"
-fi
+# GITUSER="$(git config --global user.name)"
+# ret=$?
+# if [ $ret != 0 ]; then
+#     echo -n "Enter user name (in full) for git: "
+#     input=
+#     while [[ $input = "" ]]; do
+#     read input
+#     done
+#     git config --global user.name "$input"
+# else
+#     echo "Git global username set to: $GITUSER"
+# fi
 
-cd $WORK_DIR && git clone https://github.com/sunipkm/ubuntu-setup && cd ubuntu-setup
-bash move_config.sh
+cd $WORK_DIR && git clone https://github.com/sunipkm/ubuntu-setup
+cd ubuntu-setup
+bash ./move_config.sh
 
