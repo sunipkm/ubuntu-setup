@@ -24,11 +24,11 @@ SPWD=$(pwd)
 USER=$(whoami)
 
 if ! which git &> /dev/null; then
-    sudo apt update && sudo apt install git git-lfs
+    sudo apt-get update &> /dev/null && sudo apt-get install git git-lfs -y &> /dev/null
 fi
 
 # update git name and email
-GITEMAIL=$(git config --global user.email)
+GITEMAIL="$(git config --global user.email)"
 ret=$?
 if [ $ret != 0 ]; then
     echo -n "Enter email for git: "
@@ -41,7 +41,7 @@ else
     echo "Git global email set to: $GITEMAIL"
 fi
 
-GITUSER=$(git config --global user.name)
+GITUSER="$(git config --global user.name)"
 ret=$?
 if [ $ret != 0 ]; then
     echo -n "Enter user name (in full) for git: "
