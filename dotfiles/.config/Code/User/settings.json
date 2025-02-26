@@ -121,12 +121,10 @@
     "spellchecker.ignoreRegExp": [
         "/^\\\\"
     ],
-    "python.defaultInterpreterPath": "/Users/sunip/.anaconda3/bin/python",
+    "python.defaultInterpreterPath": "~/.miniconda3/bin/python",
     "files.autoSave": "afterDelay",
     "C_Cpp.default.cStandard": "gnu11",
     "C_Cpp.default.cppStandard": "c++17",
-    "doxdocgen.generic.authorEmail": "sunipkmukherjee@gmail.com",
-    "doxdocgen.generic.authorName": "Sunip K. Mukherjee",
     "C_Cpp.default.includePath": [
         "${HOMEBREW_REPOSITORY}/include",
         "${workspaceFolder}/**"
