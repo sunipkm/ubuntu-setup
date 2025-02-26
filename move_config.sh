@@ -80,9 +80,9 @@ rm -vf *.ttf # delete all font files in there
 echo "Downloading Cascadia Code..."
 curl -Lo CascadiaCode.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/CascadiaCode.tar.xz"
 tar xf CascadiaCode.tar.xz
-echo "Downloading SourceCodePro..."
-curl -Lo SourceCodePro.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/SourceCodePro.tar.xz"
-tar xf SourceCodePro.tar.xz
+echo "Downloading Meslo..."
+curl -Lo Meslo.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/Meslo.tar.xz"
+tar xf Meslo.tar.xz
 for font_file in $WORK_DIR/*.ttf; do
     sudo cp "$font_file" /usr/share/fonts/truetype/
 done
