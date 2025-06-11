@@ -179,4 +179,40 @@
     "python.REPL.sendToNativeREPL": false,
     "workbench.colorTheme": "One Dark Pro Monokai Darker",
     "python.analysis.typeCheckingMode": "standard",
+    "editor.semanticTokenColorCustomizations": {
+        "[One Dark Pro Monokai Darker]": {
+            "enabled": true,
+            "rules": {
+                "method.async": {
+                    "italic": true,
+                    "bold": true
+                },
+                "*.mutable": {
+                    "underline": true
+                },
+                "enum": "#eeff00bd",
+                "*.trait": "#00ccff",
+                "interface": "#008cff",
+                "*.crateRoot": "#51ff00d3",
+                "variable": "#00ffb3d3",
+                "property": "#24d9f1",
+                "parameter": "#e84273",
+                "selfKeyword": "#00eeff",
+                "selfParameter": "#00d9ff",
+                "selfTypeKeyword": {
+                    "fontStyle": "bold",
+                    "foreground": "#00d9ff"
+                },
+                "typeAlias": "#ff0000ea",
+                "clsParameter": "#ff00c8",
+                "clsKeyword": "#ff00c8",
+                "derive": "#00ffea",
+                "*.controlFlow": "#f13349",
+                "*.deprecated":{
+                    "strikethrough": true
+                },
+                "macro": "#dadada"
+            }
+        }
+    },
 }
