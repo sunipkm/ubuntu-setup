@@ -177,4 +177,6 @@
     "window.titleBarStyle": "custom",
     "rust-analyzer.check.features": "all",
     "python.REPL.sendToNativeREPL": false,
+    "workbench.colorTheme": "One Dark Pro Monokai Darker",
+    "python.analysis.typeCheckingMode": "standard",
 }
