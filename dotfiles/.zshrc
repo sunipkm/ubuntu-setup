@@ -237,7 +237,7 @@ eval "$(zoxide init zsh)"
 # export GOBIN=$GOPATH/bin
 # export PATH=$PATH:$GOBIN
 
-export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH
+#LD_LIBRARY_PATH
 export PATH=$HOME/.local/bin:$PATH
 
 source ~/.miniconda3/bin/activate

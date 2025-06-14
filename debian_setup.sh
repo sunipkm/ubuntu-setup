@@ -1,38 +1,38 @@
 #!/bin/bash
 # the directory of the script
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # the temp directory used, within $DIR
 # omit the -p parameter to create a temporal directory in the default location
-WORK_DIR=`mktemp -d`
+WORK_DIR=$(mktemp -d)
 
 # check if tmp dir was created
 if [[ ! "$WORK_DIR" || ! -d "$WORK_DIR" ]]; then
-  echo "Could not create temp dir"
-  exit 1
+    echo "Could not create temp dir"
+    exit 1
 fi
 
 # deletes the temp directory
-function cleanup {      
-  rm -rf "$WORK_DIR"
+function cleanup {
+    rm -rf "$WORK_DIR"
 }
 
 # register the cleanup function to be called on the EXIT signal
 trap cleanup EXIT
 
 echo "Setting write permission to /usr/local..."
-sudo chown -R $USER:root /usr/local > /dev/null
+sudo chown -R $USER:root /usr/local >/dev/null
 echo "System upgrade..."
-sudo apt-get update > /dev/null
-sudo apt-get upgrade -y > /dev/null
+sudo apt-get update >/dev/null
+sudo apt-get upgrade -y >/dev/null
 echo "Some essential packages..."
-sudo apt-get install -y curl > /dev/null
-sudo apt-get install -y build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran python3-pip > /dev/null
+sudo apt-get install -y curl >/dev/null
+sudo apt-get install -y build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran python3-pip >/dev/null
 echo "Create local install path..."
-mkdir -p ~/.local/bin > /dev/null
+mkdir -p ~/.local/bin >/dev/null
 echo "Set path to include local dir..."
-export PATH="$HOME/.local/bin:/usr/local/bin:$PATH" > /dev/null
-if ! which kitty &> /dev/null; then
+export PATH="$HOME/.local/bin:/usr/local/bin:$PATH" >/dev/null
+if ! which kitty &>/dev/null; then
     echo "Installing kitty..."
     curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
     # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
@@ -46,24 +46,24 @@ if ! which kitty &> /dev/null; then
     sed -i "s|Icon=kitty|Icon=$(readlink -f ~)/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" ~/.local/share/applications/kitty*.desktop
     sed -i "s|Exec=kitty|Exec=$(readlink -f ~)/.local/kitty.app/bin/kitty|g" ~/.local/share/applications/kitty*.desktop
     # Make xdg-terminal-exec (and hence desktop environments that support it use kitty)
-    echo 'kitty.desktop' > ~/.config/xdg-terminals.list
+    echo 'kitty.desktop' >~/.config/xdg-terminals.list
     echo "Setting kitty as default terminal..."
     sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator ~/.local/bin/kitty 50
 fi
 echo "Some QoL dependencies..."
-sudo apt-get install -y zoxide > /dev/null
-sudo apt-get install -y fzf > /dev/null
-sudo apt-get install -y eza > /dev/null
-sudo apt-get install -y bat > /dev/null
-sudo apt-get install -y tmux > /dev/null
-sudo apt-get install -y openssh-server openssh-client > /dev/null
-sudo apt-get install -y ripgrep jq fd-find > /dev/null
-sudo apt-get install -y libssl-dev > /dev/null
+sudo apt-get install -y zoxide >/dev/null
+sudo apt-get install -y fzf >/dev/null
+sudo apt-get install -y eza >/dev/null
+sudo apt-get install -y bat >/dev/null
+sudo apt-get install -y tmux >/dev/null
+sudo apt-get install -y openssh-server openssh-client >/dev/null
+sudo apt-get install -y ripgrep jq fd-find >/dev/null
+sudo apt-get install -y libssl-dev >/dev/null
 # sudo apt install -y ibus-setup
 
 # bat name conflict
-mkdir -p ~/.local/bin > /dev/null
-ln -s /usr/bin/batcat ~/.local/bin/bat &> /dev/null
+mkdir -p ~/.local/bin >/dev/null
+ln -s /usr/bin/batcat ~/.local/bin/bat &>/dev/null
 
 # Generate ssh key
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
@@ -88,9 +88,9 @@ for font_file in $WORK_DIR/*.ttf; do
 done
 cd $DIR
 echo "Updating font cache..."
-sudo fc-cache -f -v > /dev/null
+sudo fc-cache -f -v >/dev/null
 
-if ! which starship &> /dev/null; then
+if ! which starship &>/dev/null; then
     echo "Installing starship..."
     curl -sSf https://starship.rs/install.sh | sh -s -- -y
 fi
@@ -106,7 +106,7 @@ else
 fi
 
 # Lazygit
-if ! which lazygit &> /dev/null; then
+if ! which lazygit &>/dev/null; then
     echo "Installing lazygit..."
     LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
     cd $WORK_DIR
@@ -116,7 +116,7 @@ if ! which lazygit &> /dev/null; then
     cd $DIR
 fi
 
-if ! which nvim &> /dev/null; then
+if ! which nvim &>/dev/null; then
     echo "Installing neovim..."
     NEOVIM_VERSION=$(curl -s "https://api.github.com/repos/neovim/neovim/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
     cd $WORK_DIR
@@ -127,14 +127,14 @@ if ! which nvim &> /dev/null; then
 fi
 
 # termdown
-if ! which termdown &> /dev/null; then
+if ! which termdown &>/dev/null; then
     echo "Installing termdown..."
     /usr/bin/python3 -m pip install --break-system-packages termdown
 fi
 
 # typst
 echo "Installing typst..."
-if ! which typst &> /dev/null; then
+if ! which typst &>/dev/null; then
     cargo install --locked typst-cli
 fi
 
@@ -143,7 +143,10 @@ echo "Extracting dotpackages..."
 tar -xf $DIR/dotpkgs.txz -C $HOME/
 echo "Copying dotfiles..."
 cp -r $DIR/dotfiles/. $HOME/
+cp -r $DIR/dotfiles_debian/. $HOME/
 
+# set LD_LIBRARY_PATH in .zshrc
+sed -i '/#LD_LIBRARY_PATH/c\export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH' $HOME/.zshrc
 
 # miniconda
 if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
@@ -167,43 +170,43 @@ pip install skmpython@git+https://github.com/sunipkm/skmpython
 #     cd $WORK_DIR && rm -rf thefuck && git clone https://github.com/mbridon/thefuck.git && pip uninstall thefuck && pip install -e ./thefuck && cd $DIR
 # fi
 
-if ! which code &> /dev/null; then
+if ! which code &>/dev/null; then
     echo "Installing vscode..."
-    sudo apt-get install -y wget gpg> /dev/null
-    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+    sudo apt-get install -y wget gpg >/dev/null
+    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
     sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
     sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
-    sudo apt-get install -y apt-transport-https > /dev/null
-    sudo apt-get update > /dev/null
-    sudo apt-get install -y code > /dev/null
-    sudo apt-get -f install -y > /dev/null
+    sudo apt-get install -y apt-transport-https >/dev/null
+    sudo apt-get update >/dev/null
+    sudo apt-get install -y code >/dev/null
+    sudo apt-get -f install -y >/dev/null
 
     while read -r line; do
-        code --install-extension "$line";
-    done < "extensions.txt"
+        code --install-extension "$line"
+    done <"extensions.txt"
 fi
 sudo apt-get autoremove -y
 
 # nodejs and yarn
-if ! which node &> /dev/null; then
+if ! which node &>/dev/null; then
     echo "Installing nodejs..."
-    sudo apt-get install -y nodejs > /dev/null
+    sudo apt-get install -y nodejs >/dev/null
 fi
 
-if ! which npm &> /dev/null; then
+if ! which npm &>/dev/null; then
     echo "Installing npm..."
-    sudo apt-get install -y npm > /dev/null
+    sudo apt-get install -y npm >/dev/null
 fi
 
-if ! which yarn &> /dev/null; then
+if ! which yarn &>/dev/null; then
     echo "Installing yarn..."
-    npm install --global yarn > /dev/null
+    npm install --global yarn >/dev/null
 fi
 
-if ! which zsh &> /dev/null; then
+if ! which zsh &>/dev/null; then
     echo "zsh not found, installing zsh"
-    sudo apt-get update > /dev/null
-    sudo apt-get install zsh -y > /dev/null
+    sudo apt-get update >/dev/null
+    sudo apt-get install zsh -y >/dev/null
     echo -e "\n\nExecute the following command to switch to the zsh shell:\nchsh -s /usr/bin/zsh\n"
     echo "Reboot the system before proceeding. After restarting, run terminal, and leave zsh unconfigured."
 fi

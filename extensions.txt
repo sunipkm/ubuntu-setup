@@ -74,3 +74,4 @@ wayou.vscode-todo-highlight
 xaver.clang-format
 yzhang.markdown-all-in-one
 eserozvataf.one-dark-pro-monokai-darker
+foxundermoon.shell-format

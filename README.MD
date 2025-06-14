@@ -1,8 +1,14 @@
-# Ubuntu Setup
+# Setup
+## Debian-based Systems
 Execute the following command to get started:
 ```sh
-$ sudo apt-get update && sudo apt-get install -y curl
-$ curl -sS https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/bootstrap.sh | bash
+sudo apt-get update && sudo apt-get install -y curl
+curl -sS https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/bootstrap.sh | bash
+```
+
+## macOS
+```sh
+curl -sS https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/bootstrap.sh | bash
 ```
 
 ## Operations
