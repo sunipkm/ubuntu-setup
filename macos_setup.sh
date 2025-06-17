@@ -76,7 +76,7 @@ fi
 
 # Fonts
 echo "Installing fonts..."
-NERDFONT_VERSION=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
+NERDFONT_VERSION=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
 echo "Installing nerd fonts..."
 cd $WORK_DIR
 rm -vf *.ttf # delete all font files in there
@@ -140,9 +140,9 @@ sed -i '/#LD_LIBRARY_PATH/c\export DYLD_LIBRARY_PATH=/usr/local/lib:/usr/lib:\$D
 # miniconda
 if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
     echo "Installing python..."
-    cd $WORK_DIR && wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-$(ARCH).sh
-    chmod +x Miniconda3-latest-MacOSX-$(ARCH).sh
-    ./Miniconda3-latest-MacOSX-$(ARCH).sh -b -u -p $HOME/.miniconda3
+    cd $WORK_DIR && wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-$ARCH.sh
+    chmod +x Miniconda3-latest-MacOSX-$ARCH.sh
+    ./Miniconda3-latest-MacOSX-$ARCH.sh -b -u -p $HOME/.miniconda3
     source $HOME/.miniconda3/bin/activate
     conda config --set changeps1 false
     cd $DIR
