@@ -53,7 +53,6 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
     if ! command -v brew &>/dev/null; then
         echo "Installing Homebrew..."
         curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh --output install.sh
-        INTERACTIVE=1
         source ./install.sh
     fi
 else
@@ -62,11 +61,9 @@ else
 fi
 
 # Get git email
-echo "Enter your git email: "
-GITEMAIL=$(</dev/stdin)
+read -p "Enter your git email: " GITEMAIL
 # Get git username
-echo "Enter your git username: "
-GITUSER=$(</dev/stdin)
+read -p "Enter your git username: " GITUSER
 # Set git email and username globally
 git config --global user.email "$GITEMAIL"
 git config --global user.name "$GITUSER"
