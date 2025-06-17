@@ -53,7 +53,7 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
     if ! command -v brew &>/dev/null; then
         echo "Installing Homebrew..."
         curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh --output install.sh
-        source ./install.sh
+        /bin/bash -i ./install.sh
     fi
 else
     echo "This script is intended for Debian Linux and macOS platforms only."
