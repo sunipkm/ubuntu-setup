@@ -63,10 +63,10 @@ fi
 
 # Get git email
 echo "Enter your git email: "
-GITEMAIL=$(cat)
+GITEMAIL=$(</dev/stdin)
 # Get git username
 echo "Enter your git username: "
-GITUSER=$(cat)
+GITUSER=$(</dev/stdin)
 # Set git email and username globally
 git config --global user.email "$GITEMAIL"
 git config --global user.name "$GITUSER"
