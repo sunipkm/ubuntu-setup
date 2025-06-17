@@ -86,6 +86,7 @@ tar xf CascadiaCode.tar.xz
 echo "Downloading Meslo..."
 curl -Lo Meslo.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/Meslo.tar.xz"
 tar xf Meslo.tar.xz
+echo "Authenticate font installation: "
 for font_file in $WORK_DIR/*.ttf; do
     sudo cp "$font_file" $HOME/Library/Fonts/
 done
@@ -118,9 +119,9 @@ if ! which nvim &>/dev/null; then
 fi
 
 # termdown
-if ! which termdown &>/dev/null; then
-    echo "Installing termdown..."
-    brew install termdown >/dev/null
+if ! which countdown &>/dev/null; then
+    echo "Installing countdown..."
+    brew install countdown >/dev/null
 fi
 
 # typst
@@ -138,6 +139,7 @@ mkdir -p $HOME/Library/Application\ Support/Code/User
 cp $HOME/.config/Code/User/settings.json $HOME/Library/Application\ Support/Code/User/
 
 sed -i '' "s/#LD_LIBRARY_PATH/export DYLD_LIBRARY_PATH=\/usr\/local\/lib:\/usr\/lib:\$DYLD_LIBRARY_PATH/g" $HOME/.zshrc
+sed -i '' "s/termdown/countdown/g" $HOME/.zshrc
 if [[ "$ARCH" == "arm64" ]]; then
     sed -i '' "s/#HOMEBREW_IMPORT/eval \"\$\(\/opt\/homebrew\/bin\/brew shellenv\)\"/g" $HOME/.zshrc
 else

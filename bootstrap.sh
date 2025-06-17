@@ -49,6 +49,8 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
             sleep 5
         done
     fi
+    echo "Enabling touch ID for sudo..."
+    echo "auth       sufficient     pam_tid.so" | sudo tee -a /etc/pam.d/sudo_local
     # Install Homebrew if not already installed
     if ! command -v brew &>/dev/null; then
         echo "Installing Homebrew..."

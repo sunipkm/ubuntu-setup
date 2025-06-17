@@ -240,9 +240,10 @@ eval "$(zoxide init zsh)"
 # export GOBIN=$GOPATH/bin
 # export PATH=$PATH:$GOBIN
 
+source ~/.miniconda3/bin/activate
+
 #LD_LIBRARY_PATH
 
-source ~/.miniconda3/bin/activate
 # eval "$(thefuck --alias)"
 
 # if [ -z "$TMUX" ]; then
