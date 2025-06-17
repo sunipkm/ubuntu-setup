@@ -1,4 +1,4 @@
-#!/bin/bash -i
+#!/bin/bash
 # the directory of the script
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
