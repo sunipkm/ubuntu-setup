@@ -62,15 +62,17 @@ else
 fi
 
 # Get git email
-read -p "Enter your git email: " GITEMAIL
+echo "Enter your git email: "
+GITEMAIL=$(cat)
 # Get git username
-read -p "Enter your git username: " GITUSER
+echo "Enter your git username: "
+GITUSER=$(cat)
 # Set git email and username globally
 git config --global user.email "$GITEMAIL"
 git config --global user.name "$GITUSER"
 
 # Set git branch name to master
-git branch -m master
+git config --global init.defaultBranch master
 
 cd $WORK_DIR && git clone https://github.com/sunipkm/ubuntu-setup
 cd ubuntu-setup
