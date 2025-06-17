@@ -31,7 +31,7 @@ if [[ "$PLATFORM" == "Linux" ]]; then
     echo "Detected Linux platform"
     if [[ -f /etc/debian_version ]]; then
         echo "Detected Debian-based system"
-        DEBIAN=$true
+        DEBIAN=true
         sudo apt-get update &>/dev/null && sudo apt-get install git git-lfs -y &>/dev/null
     else
         echo "This script is intended for Debian-based systems only."
@@ -39,7 +39,7 @@ if [[ "$PLATFORM" == "Linux" ]]; then
     fi
 elif [[ "$PLATFORM" == "Darwin" ]]; then
     echo "Detected macOS platform"
-    MACOS=$true
+    MACOS=true
     # Install xcode-select command line tools if not already installed
     if ! xcode-select -p &>/dev/null; then
         echo "Installing Xcode command line tools..."
@@ -74,10 +74,10 @@ git config --global init.defaultBranch master
 cd $WORK_DIR && git clone https://github.com/sunipkm/ubuntu-setup
 cd ubuntu-setup
 
-if [[ "$MACOS" == true ]]; then
+if [ "$MACOS" = true ]; then
     echo "Running macOS setup..."
     source ./macos_setup.sh
-elif [[ "$DEBIAN" == true ]]; then
+elif [ "$DEBIAN" = true ]; then
     echo "Running Debian setup..."
     source ./debian_setup.sh
 fi
