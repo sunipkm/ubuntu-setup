@@ -10,6 +10,7 @@ source $ZPLUG_HOME/init.zsh
 export ZSH="$HOME/.oh-my-zsh"
 # export EDITOR="nvim"
 export PATH="$HOME/.tmux/plugins/tmuxifier/bin:$PATH"
+export PATH=$HOME/.local/bin:$PATH
 
 plugins=(
   git
@@ -131,6 +132,8 @@ ssh_fzf() {
 # autosuggestions
 #source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
 
+#HOMEBREW_IMPORT
+
 function duls { paste <( du -hs -- "$@" | cut -f1 ) <( ls -ld -- "$@" ) }
 fpath=($fpath "$HOME/.zfunctions")
 
@@ -238,7 +241,6 @@ eval "$(zoxide init zsh)"
 # export PATH=$PATH:$GOBIN
 
 #LD_LIBRARY_PATH
-export PATH=$HOME/.local/bin:$PATH
 
 source ~/.miniconda3/bin/activate
 # eval "$(thefuck --alias)"

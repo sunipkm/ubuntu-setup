@@ -93,7 +93,7 @@ cd $DIR
 
 if ! which starship &>/dev/null; then
     echo "Installing starship..."
-    curl -sSf https://starship.rs/install.sh | sh -s -- -y
+    curl -sSf https://starship.rs/install.sh | sh -s -- -y -b $HOME/.local/bin
 fi
 
 if ! [ -f "$HOME/.cargo/env" ]; then
@@ -131,16 +131,16 @@ fi
 
 # copy all dotfiles
 echo "Extracting dotpackages..."
-tar -xf $DIR/dotpkgs.txz -C $HOME/
+tar -xf $DIR/dotpkgs.tar.gz -C $HOME/
 echo "Copying dotfiles..."
 cp -r $DIR/dotfiles/. $HOME/
+mkdir -p $HOME/Library/Application\ Support/Code/User
+cp $HOME/.config/Code/User/settings.json $HOME/Library/Application\ Support/Code/User/
 
 sed -i '' "s/#LD_LIBRARY_PATH/export DYLD_LIBRARY_PATH=\/usr\/local\/lib:\/usr\/lib:\$DYLD_LIBRARY_PATH/g" $HOME/.zshrc
 if [[ "$ARCH" == "arm64" ]]; then
-    echo "Detected ARM64 architecture"
     sed -i '' "s/#HOMEBREW_IMPORT/eval \"\$\(\/opt\/homebrew\/bin\/brew shellenv\)\"/g" $HOME/.zshrc
 else
-    echo "Detected x86_64 architecture"
     sed -i '' "s/#HOMEBREW_IMPORT/eval \"\$\(\/usr\/local\/bin\/brew shellenv\)\"/g" $HOME/.zshrc
 fi
 

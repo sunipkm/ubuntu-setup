@@ -140,7 +140,7 @@ fi
 
 # copy all dotfiles
 echo "Extracting dotpackages..."
-tar -xf $DIR/dotpkgs.txz -C $HOME/
+tar -xf $DIR/dotpkgs.tar.gz -C $HOME/
 echo "Copying dotfiles..."
 cp -r $DIR/dotfiles/. $HOME/
 cp -r $DIR/dotfiles_debian/. $HOME/
