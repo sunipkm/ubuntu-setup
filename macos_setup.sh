@@ -135,7 +135,14 @@ tar -xf $DIR/dotpkgs.txz -C $HOME/
 echo "Copying dotfiles..."
 cp -r $DIR/dotfiles/. $HOME/
 
-sed -i '/#LD_LIBRARY_PATH/c\export DYLD_LIBRARY_PATH=/usr/local/lib:/usr/lib:\$DYLD_LIBRARY_PATH' $HOME/.zshrc
+sed -i '' "s/#LD_LIBRARY_PATH/export DYLD_LIBRARY_PATH=\/usr\/local\/lib:\/usr\/lib:\$DYLD_LIBRARY_PATH/g" $HOME/.zshrc
+if [[ "$ARCH" == "arm64" ]]; then
+    echo "Detected ARM64 architecture"
+    sed -i '' "s/#HOMEBREW_IMPORT/eval \"\$\(\/opt\/homebrew\/bin\/brew shellenv\)\"/g" $HOME/.zshrc
+else
+    echo "Detected x86_64 architecture"
+    sed -i '' "s/#HOMEBREW_IMPORT/eval \"\$\(\/usr\/local\/bin\/brew shellenv\)\"/g" $HOME/.zshrc
+fi
 
 # miniconda
 if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
