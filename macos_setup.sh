@@ -66,8 +66,6 @@ brew install openssl >/dev/null
 echo "Installing nano..."
 brew install nano >/dev/null
 
-echo '$HOMEBREW_CELLAR/nano/*/share/nano/*.nanorc' >>$HOME/.nanorc
-
 # Generate ssh key
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
     echo "Generating ssh key with the ed25519 algorithm..."
@@ -145,6 +143,8 @@ if [[ "$ARCH" == "arm64" ]]; then
 else
     sed -i '' "s/#HOMEBREW_IMPORT/eval \"\$\(\/usr\/local\/bin\/brew shellenv\)\"/g" $HOME/.zshrc
 fi
+
+echo '$HOMEBREW_CELLAR/nano/*/share/nano/*.nanorc' >>$HOME/.nanorc
 
 # miniconda
 if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
