@@ -144,7 +144,7 @@ else
     sed -i '' "s/#HOMEBREW_IMPORT/eval \"\$\(\/usr\/local\/bin\/brew shellenv\)\"/g" $HOME/.zshrc
 fi
 
-echo '$HOMEBREW_CELLAR/nano/*/share/nano/*.nanorc' >>$HOME/.nanorc
+echo 'include $HOMEBREW_CELLAR/nano/*/share/nano/*.nanorc' >>$HOME/.nanorc
 
 # miniconda
 if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
