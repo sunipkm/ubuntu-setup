@@ -162,7 +162,7 @@ function install_do_cmd {
   arg="$1"
   if ! [[ "$arg" =~ ^[!0-9] && "$arg" =~ ^[[:alnum:]]+$ ]]; then
     mkdir -p ~/Codes/$arg
-    echo "alias do$arg=cd ~/Codes/$arg" >> ~/.zshrc
+    echo "alias do$arg=\"cd ~/Codes/$arg\"" >> ~/.zshrc
     omz reload
   fi
 }

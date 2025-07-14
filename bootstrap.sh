@@ -250,7 +250,7 @@ if MACOS; then
     $INSTALL wget >/dev/null
     $INSTALL pkg-config libusb gfortran pv
 elif DEBIAN; then
-    $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran python3-pip >/dev/null
+    $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran >/dev/null
 fi
 
 if DEBIAN; then
@@ -371,6 +371,7 @@ fi
 if DEBIAN; then
     $INSTALL openssh-server openssh-client >/dev/null
     $INSTALL libssl-dev >/dev/null
+    $INSTALL unzip >/dev/null
 elif MACOS; then
     $INSTALL openssl >/dev/null
     $INSTALL nano >/dev/null
@@ -393,6 +394,10 @@ tar xf CascadiaCode.tar.xz
 echo "Downloading Meslo..."
 curl -Lo Meslo.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/Meslo.tar.xz"
 tar xf Meslo.tar.xz
+if DEBIAN; then
+    curl -Lo "aptos.zip" "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip"
+    unzip -o aptos.zip -d aptos >/dev/null
+fi
 for font_file in $WORK_DIR/*.ttf; do
     if DEBIAN; then
         sudo cp "$font_file" /usr/share/fonts/truetype/
