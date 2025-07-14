@@ -190,7 +190,7 @@ git config --global user.name "$GITUSER"
 git config --global init.defaultBranch master
 
 # Clone the ubuntu-setup repository
-cd $WORK_DIR && git clone https://github.com/sunipkm/ubuntu-setup
+cd $WORK_DIR && git clone https://github.com/sunipkm/ubuntu-setup -b development --depth 1
 cd ubuntu-setup
 
 # Set the working directory to the script's directory
@@ -368,6 +368,20 @@ if ! which typst &>/dev/null; then
     confirm "Install Typst" && cargo install --locked typst-cli
 fi
 
+# Install oh-my-zsh
+if ! [ -d "$HOME/.oh-my-zsh" ]; then
+    info "Installing oh-my-zsh..."
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh) --unattended"
+fi
+
+# Install catppuccin for tmux
+if ! [ -d "$HOME/.config/tmux/catppuccin" ]; then
+    info "Installing catppuccin for tmux..."
+    CATPPUCCIN_VERSION=$(curl -s "https://api.github.com/repos/catppuccin/tmux/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
+    mkdir -p $HOME/.config/tmux/plugins/catppuccin
+    git clone -b v$CATPPUCCIN_VERSION https://github.com/catppuccin/tmux.git $HOME/.config/tmux/plugins/catppuccin/tmux
+fi
+
 # copy all dotfiles
 info "Extracting dotpackages..."
 tar -xf $DIR/dotpkgs.tar.gz -C $HOME/
@@ -395,7 +409,7 @@ if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
     info "Installing python..."
     cd $WORK_DIR
     if DEBIAN; then
-        MINICONDA_INSTALLER=Miniconda3-latest-Linux-x86_64.sh
+        MINICONDA_INSTALLER=Miniconda3-latest-Linux-$ARCH.sh
     elif MACOS; then
         MINICONDA_INSTALLER=Miniconda3-latest-MacOSX-$ARCH.sh
     fi
