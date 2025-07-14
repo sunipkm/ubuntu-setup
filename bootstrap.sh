@@ -476,6 +476,12 @@ if [ $? -ne 0 ]; then
     warn "Failed to clone zsh-syntax-highlighting."
 fi
 
+info "Installing fzf-tab for zsh..."
+git clone https://github.com/Aloxaf/fzf-tab.git $HOME/.oh-my-zsh/custom/plugins/fzf-tab &> /dev/null
+if [ $? -ne 0 ]; then
+    warn "Failed to clone fzf-tab."
+fi
+
 # Install catppuccin for tmux
 if ! [ -d "$HOME/.config/tmux/catppuccin" ]; then
     info "Installing catppuccin for tmux..."
