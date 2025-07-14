@@ -623,18 +623,6 @@ if ! which yarn &>/dev/null; then
 fi
 
 if DEBIAN; then
-    if ! which zsh &>/dev/null; then
-        info "zsh not found, installing zsh..."
-        execute_sudo apt-get install zsh -y >/dev/null
-        ohai "Enable zsh as default shell?"
-        if confirm; then
-            chsh -s "$(which zsh)" "$USER"
-            info "zsh has been set as the default shell for $USER."
-        else
-            info "zsh has not been set as the default shell for $USER."
-            info "You can set it later by running 'chsh -s \$(which zsh)'."
-        fi
-    fi
     ohai "Run the following command to install the proprietary Microsoft core fonts:"
     ohai "sudo apt-get install -y ttf-mscorefonts-installer"
 fi
