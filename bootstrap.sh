@@ -245,7 +245,6 @@ if MACOS; then
     $INSTALL wget >/dev/null
     $INSTALL pkg-config libusb gfortran pv
 elif DEBIAN; then
-    $INSTALL curl >/dev/null
     $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran python3-pip >/dev/null
 fi
 
@@ -253,6 +252,18 @@ if DEBIAN; then
     if ! which rsync &>/dev/null; then
         info "Installing rsync..."
         $INSTALL rsync >/dev/null
+    fi
+    if ! which zsh &>/dev/null; then
+        info "zsh not found, installing zsh..."
+        execute_sudo apt-get install zsh -y >/dev/null
+        ohai "Enable zsh as default shell?"
+        if confirm; then
+            chsh -s "$(which zsh)" "$USER"
+            info "zsh has been set as the default shell for $USER."
+        else
+            info "zsh has not been set as the default shell for $USER."
+            info "You can set it later by running 'chsh -s \$(which zsh)'."
+        fi
     fi
 fi
 
