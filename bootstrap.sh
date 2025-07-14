@@ -457,6 +457,25 @@ if ! [ -d "$HOME/.oh-my-zsh" ]; then
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --unattended
 fi
 
+# Install powerlevel10k
+info "Installing powerlevel10k theme for oh-my-zsh..."
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" &> /dev/null
+if [ $? -ne 0 ]; then
+    warn "Failed to clone powerlevel10k."
+fi
+
+info "Installing zsh autosuggestions..."
+git clone https://github.com/zsh-users/zsh-autosuggestions $HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions &> /dev/null
+if [ $? -ne 0 ]; then
+    warn "Failed to clone zsh-autosuggestions."
+fi
+
+info "Installing zsh syntax highlighting..."
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting &> /dev/null
+if [ $? -ne 0 ]; then
+    warn "Failed to clone zsh-syntax-highlighting."
+fi
+
 # Install catppuccin for tmux
 if ! [ -d "$HOME/.config/tmux/catppuccin" ]; then
     info "Installing catppuccin for tmux..."
