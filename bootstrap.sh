@@ -564,5 +564,6 @@ if DEBIAN; then
             info "You can set it later by running 'chsh -s \$(which zsh)'."
         fi
     fi
-    ohai "Run the following command to install the proprietary Microsoft core fonts:\nsudo apt-get install -y ttf-mscorefonts-installer"
+    ohai "Run the following command to install the proprietary Microsoft core fonts:"
+    ohai "sudo apt-get install -y ttf-mscorefonts-installer"
 fi
