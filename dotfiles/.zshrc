@@ -158,11 +158,21 @@ alias tat="tmux attach -t"
 alias tsf="tmux source-file ~/.tmux.conf"
 alias tk="tmux kill-session -a"
 
+function install_do_cmd {
+  arg="$1"
+  if ! [[ "$arg" =~ ^[!0-9] && "$arg" =~ ^[[:alnum:]]+$ ]]; then
+    mkdir -p ~/Codes/$arg
+    echo "alias do$arg=cd ~/Codes/$arg" >> ~/.zshrc
+    omz reload
+  fi
+}
+
+alias update-my-alternatives='update-alternatives --altdir ~/.local/etc/alternatives --admindir ~/.local/var/lib/alternatives'
+
 # Directories
 alias download="cd ~/Downloads"
 alias dopython="cd ~/Codes/python"
 alias dorust="cd ~/Codes/rust"
-alias dopicture="cd ~/Codes/picture"
 
 # config files
 alias ezsh="$EDITOR ~/.zshrc"

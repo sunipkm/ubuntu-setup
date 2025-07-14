@@ -49,6 +49,13 @@ else
     echo "No platform-specific dotfiles directory found."
 fi
 
+if ! [ -z "$HOME/.zshrc" ]; then
+    echo "Backing up existing .zshrc to .zshrc.bak"
+    mv "$HOME/.zshrc" "$HOME/.zshrc.pre-dotfile-install"
+fi
+
+cp "$WORK_DIR/dotfiles/.zshrc" "$HOME/.zshrc"
+
 
 exit 0
 # Here's the end of the script followed by the embedded file

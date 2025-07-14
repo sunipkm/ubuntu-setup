@@ -64,7 +64,7 @@ have_sudo_access() {
         SUDO+=("-A")
     fi
 
-    if [[ -z "${HAVE_SUDO_ACCESS-}" ]]; then 
+    if [[ -z "${HAVE_SUDO_ACCESS-}" ]]; then
         "${SUDO[@]}" -v && "${SUDO[@]}" -l mkdir &>/dev/null
         HAVE_SUDO_ACCESS="$?"
     fi
@@ -165,6 +165,8 @@ if [[ "$PLATFORM" == "Linux" ]]; then
     echo "Detected Linux platform"
     if [[ -f /etc/debian_version ]]; then
         echo "Detected Debian-based system"
+        alias update-my-alternatives='update-alternatives --altdir ~/.local/etc/alternatives --admindir ~/.local/var/lib/alternatives'
+        mkdir -p ~/.local/var/lib/alternatives ~/.local/etc/alternatives
         IS_DEBIAN=true
         UPDATE="execute_sudo apt-get update -y"
         UPGRADE="execute_sudo apt-get upgrade -y"
@@ -204,6 +206,9 @@ else
     abort "This script is intended for Debian Linux and macOS platforms only."
 fi
 
+echo ""
+echo ""
+
 # Get git email
 if [[ $(git config --global user.email) ]]; then
     info "Git email already set: $(git config --global user.email)"
@@ -220,7 +225,7 @@ else
 fi
 
 # Set git branch name to master
-git config --global init.defaultBranch master &> /dev/null
+git config --global init.defaultBranch master &>/dev/null
 
 # Homebrew path
 if MACOS; then
@@ -275,21 +280,21 @@ export PATH="$HOME/.local/bin:/usr/local/bin:$PATH" >/dev/null
 if ! which kitty &>/dev/null; then
     info "Installing kitty..."
     if DEBIAN; then
-        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin dest=/usr/local
+        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
         # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
         # your system-wide PATH)
-        ln -sf /usr/local/kitty.app/bin/kitty /usr/local/kitty.app/bin/kitten /usr/local/bin/
+        ln -sf ~/.local/kitty.app/bin/kitty ~/.local/kitty.app/bin/kitten ~/.local/bin/
         # Place the kitty.desktop file somewhere it can be found by the OS
-        cp /usr/local/kitty.app/share/applications/kitty.desktop ~/.local/share/applications/
+        cp ~/.local/kitty.app/share/applications/kitty.desktop ~/.local/share/applications/
         # If you want to open text files and images in kitty via your file manager also add the kitty-open.desktop file
-        cp /usr/local/kitty.app/share/applications/kitty-open.desktop ~/.local/share/applications/
+        cp ~/.local/kitty.app/share/applications/kitty-open.desktop ~/.local/share/applications/
         # Update the paths to the kitty and its icon in the kitty desktop file(s)
         sed -i "s|Icon=kitty|Icon=$(readlink -f ~)/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" ~/.local/share/applications/kitty*.desktop
         sed -i "s|Exec=kitty|Exec=$(readlink -f ~)/.local/kitty.app/bin/kitty|g" ~/.local/share/applications/kitty*.desktop
         # Make xdg-terminal-exec (and hence desktop environments that support it use kitty)
         echo 'kitty.desktop' >~/.config/xdg-terminals.list
         echo "Setting kitty as default terminal..."
-        sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/local/bin/kitty 50
+        update-my-alternatives --install ~/.local/bin/x-terminal-emulator x-terminal-emulator ~/.local/bin/kitty 50
     elif MACOS; then
         curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
     fi
@@ -343,7 +348,7 @@ fi
 if ! which jq &>/dev/null; then
     $INSTALL jq >/dev/null
 else
-    info "jq is already installed"  
+    info "jq is already installed"
 fi
 
 if DEBIAN; then
@@ -456,7 +461,7 @@ fi
 
 if ! which typst &>/dev/null; then
     if [ "$RUST_INSTALLED" = true ]; then
-        confirm "Install Typst" && cargo install --locked typst-cli --root-dir /usr/local/bin
+        confirm "Install Typst" && cargo install --locked typst-cli --root /usr/local/bin
     else
         warn "Typst requires Rust, install the Rust toolchain, then run 'cargo install --locked typst-cli' to install Typst."
     fi
@@ -470,25 +475,25 @@ fi
 
 # Install powerlevel10k
 info "Installing powerlevel10k theme for oh-my-zsh..."
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" &> /dev/null
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$HOME/.oh-my-zsh/custom/themes/powerlevel10k" &>/dev/null
 if [ $? -ne 0 ]; then
     warn "Failed to clone powerlevel10k."
 fi
 
 info "Installing zsh autosuggestions..."
-git clone https://github.com/zsh-users/zsh-autosuggestions $HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions &> /dev/null
+git clone https://github.com/zsh-users/zsh-autosuggestions $HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions &>/dev/null
 if [ $? -ne 0 ]; then
     warn "Failed to clone zsh-autosuggestions."
 fi
 
 info "Installing zsh syntax highlighting..."
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting &> /dev/null
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting &>/dev/null
 if [ $? -ne 0 ]; then
     warn "Failed to clone zsh-syntax-highlighting."
 fi
 
 info "Installing fzf-tab for zsh..."
-git clone https://github.com/Aloxaf/fzf-tab.git $HOME/.oh-my-zsh/custom/plugins/fzf-tab &> /dev/null
+git clone https://github.com/Aloxaf/fzf-tab.git $HOME/.oh-my-zsh/custom/plugins/fzf-tab &>/dev/null
 if [ $? -ne 0 ]; then
     warn "Failed to clone fzf-tab."
 fi
