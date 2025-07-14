@@ -1,4 +1,5 @@
 #!/bin/bash
+set -u
 
 abort() {
     printf "%s\n" "$@" >&2
@@ -83,15 +84,18 @@ execute() {
 
 execute_sudo() {
     local -a args=("$@")
+    echo "Executing: ${args[*]}"
     if [[ "${EUID:-${UID}}" != "0" ]] && have_sudo_access; then
         if [[ -n "${SUDO_ASKPASS-}" ]]; then
             args=("-A" "${args[@]}")
         fi
+        echo "Running with sudo: ${args[*]}"
         ohai "/usr/bin/sudo" "${args[@]}"
         execute "/usr/bin/sudo" "${args[@]}"
     else
-        ohai "${args[@]}"
-        execute "${args[@]}"
+        echo "Running as root, no need for sudo."
+        # ohai "${args[@]}"
+        # execute "${args[@]}"
     fi
 }
 
@@ -132,27 +136,45 @@ trap cleanup EXIT
 SPWD=$(pwd)
 USER=$(whoami)
 
-MACOS=$false
-DEBIAN=$false
+IS_MACOS=false
+IS_DEBIAN=false
+
+function MACOS() {
+    if [[ "$IS_MACOS" == true ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function DEBIAN() {
+    if [[ "$IS_DEBIAN" == true ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
 
 PLATFORM=$(uname -s)
+ARCH=$(uname -m)
 if [[ "$PLATFORM" == "Linux" ]]; then
     echo "Detected Linux platform"
     if [[ -f /etc/debian_version ]]; then
         echo "Detected Debian-based system"
-        DEBIAN=true
-        execute_sudo apt-get update &>/dev/null
-        execute_sudo apt-get install git git-lfs -y &>/dev/null
-        UPDATE=execute_sudo apt-get update -y
-        UPGRADE=execute_sudo apt-get upgrade -y
-        INSTALL=execute_sudo apt-get install -y
+        IS_DEBIAN=true
+        UPDATE="execute_sudo apt-get update -y"
+        UPGRADE="execute_sudo apt-get upgrade -y"
+        INSTALL="execute_sudo apt-get install -y"
+        $UPDATE
+        $UPGRADE
+        $INSTALL git git-lfs -y &>/dev/null
         ADMIN=root
     else
         abort "This script is intended for Debian-based systems only."
     fi
 elif [[ "$PLATFORM" == "Darwin" ]]; then
     echo "Detected macOS platform"
-    MACOS=true
+    IS_MACOS=true
     # Install xcode-select command line tools if not already installed
     if ! xcode-select -p &>/dev/null; then
         echo "Installing Xcode command line tools..."
@@ -179,28 +201,28 @@ else
 fi
 
 # Get git email
-read -p "Enter your git email: " GITEMAIL
+if [[ $(git config --global user.email) ]]; then
+    echo "Git email already set: $(git config --global user.email)"
+else
+    read -p "Enter your git email: " GITEMAIL
+    git config --global user.email "$GITEMAIL"
+fi
 # Get git username
-read -p "Enter your git full name: " GITUSER
-# Set git email and username globally
-git config --global user.email "$GITEMAIL"
-git config --global user.name "$GITUSER"
+if [[ $(git config --global user.name) ]]; then
+    echo "Git username already set: $(git config --global user.name)"
+else
+    read -p "Enter your git full name: " GITUSER
+    git config --global user.name "$GITUSER"
+fi
 
 # Set git branch name to master
-git config --global init.defaultBranch master
-
-# Clone the ubuntu-setup repository
-cd $WORK_DIR && git clone https://github.com/sunipkm/ubuntu-setup -b development --depth 1
-cd ubuntu-setup
+git config --global init.defaultBranch master &> /dev/null
 
 # Set the working directory to the script's directory
 DIR=$(pwd)
 
-# Architecture
-ARCH=$(uname -m)
-
 # Homebrew path
-if [ "$MACOS" = true ]; then
+if MACOS; then
     if [[ "$ARCH" == "arm64" ]]; then
         echo "Detected ARM64 architecture"
         eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -211,7 +233,7 @@ if [ "$MACOS" = true ]; then
 fi
 
 info "Setting write permissions to /usr/local..."
-execute_sudo chown -R $USER:$ADMIN /usr/local >/dev/null
+execute_sudo "chown" "-R" "$USER:$ADMIN" "/usr/local"
 info "Package manager update..."
 $UPDATE >/dev/null
 info "Package manager upgrade..."
@@ -253,28 +275,79 @@ if ! which kitty &>/dev/null; then
 fi
 
 info "Some QoL dependencies..."
-$INSTALL zoxide >/dev/null
-$INSTALL fzf >/dev/null
-$INSTALL eza >/dev/null
-if [ $? -ne 0 ]; then
-    warn "Failed to install eza, trying exa..."
-    $INSTALL exa >/dev/null
+if ! which zoxide &>/dev/null; then
+    $INSTALL zoxide >/dev/null
+else
+    info "zoxide is already installed"
 fi
-$INSTALL bat >/dev/null
-$INSTALL tmux >/dev/null
-$INSTALL ripgrep jq fd >/dev/null
+if ! which fzf &>/dev/null; then
+    $INSTALL fzf >/dev/null
+else
+    info "fzf is already installed"
+fi
+
+if (! which eza &>/dev/null) && (! which exa &>/dev/null); then
+    $INSTALL eza >/dev/null
+#     if [ $? -ne 0 ]; then
+#         warn "Failed to install eza, trying exa..."
+#     $INSTALL exa >/dev/null
+else
+    info "eza or exa is already installed"
+fi
+
+if ! which batcat &>/dev/null; then
+    $INSTALL bat >/dev/null
+    if [ $? -ne 0 ]; then
+        warn "Failed to install bat, trying batcat..."
+        $INSTALL batcat >/dev/null
+    fi
+    if DEBIAN; then
+        # bat name conflict
+        mkdir -p ~/.local/bin >/dev/null
+        ln -s /usr/bin/batcat ~/.local/bin/bat &>/dev/null
+    fi
+else
+    info "bat is already installed"
+fi
+if ! which tmux &>/dev/null; then
+    $INSTALL tmux >/dev/null
+else
+    info "tmux is already installed"
+fi
+if ! which ripgrep &>/dev/null; then
+    $INSTALL ripgrep >/dev/null
+else
+    info "ripgrep is already installed"
+fi
+if ! which jq &>/dev/null; then
+    $INSTALL jq >/dev/null
+else
+    info "jq is already installed"  
+fi
+
+if DEBIAN; then
+    if ! which fd-find &>/dev/null; then
+        $INSTALL fd-find >/dev/null
+        # Create a symlink to fd as fd-find
+        mkdir -p ~/.local/bin >/dev/null
+        ln -s /usr/bin/fdfind ~/.local/bin/fd &>/dev/null
+    else
+        info "fd-find is already installed"
+    fi
+elif MACOS; then
+    if ! which fd &>/dev/null; then
+        $INSTALL fd >/dev/null
+    else
+        info "fd is already installed"
+    fi
+fi
+
 if DEBIAN; then
     $INSTALL openssh-server openssh-client >/dev/null
     $INSTALL libssl-dev >/dev/null
 elif MACOS; then
     $INSTALL openssl >/dev/null
     $INSTALL nano >/dev/null
-fi
-
-if DEBIAN; then
-    # bat name conflict
-    mkdir -p ~/.local/bin >/dev/null
-    ln -s /usr/bin/batcat ~/.local/bin/bat &>/dev/null
 fi
 
 # Generate ssh key
@@ -384,9 +457,11 @@ fi
 
 # copy all dotfiles
 info "Extracting dotpackages..."
-tar -xf $DIR/dotpkgs.tar.gz -C $HOME/
-info "Copying dotfiles..."
-cp -r $DIR/dotfiles/. $HOME/
+UBUNTU_SETUP_VERSION=$(curl -s "https://api.github.com/repos/sunipkm/ubuntu-setup/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
+bash -c $(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/v$UBUNTU_SETUP_VERSION/dotfiles_installer.sh)
+if [ $? -ne 0 ]; then
+    warn "Failed to extract dotfiles, trying to copy manually..."
+fi
 
 if DEBIAN; then
     cp -r $DIR/dotfiles_debian/. $HOME/

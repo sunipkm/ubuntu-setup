@@ -23,4 +23,4 @@ trap cleanup EXIT
 
 tar -cvzf "$WORK_DIR/dotfiles.tar.gz" dotfiles dotfiles_debian
 base64 < "$WORK_DIR/dotfiles.tar.gz" > "$WORK_DIR/dotfiles_payload.txt"
-cat shellarg.sh $WORK_DIR/dotfiles_payload.txt > "$PDIR/dotfiles_installer.sh"
+cat dotfiles_installer_base.sh $WORK_DIR/dotfiles_payload.txt > "$PDIR/dotfiles_installer.sh"

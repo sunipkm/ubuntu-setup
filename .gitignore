@@ -1,5 +1,5 @@
 # Usual suspects
 .DS_Store
 Thumbs.db
-
-dotpkgs
+*.tar.gz
+dotfiles_installer.sh

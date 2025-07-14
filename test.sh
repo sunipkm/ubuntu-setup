@@ -1,6 +1,50 @@
 #!/bin/bash
 
-ECHO=echo
+if (! which eza &>/dev/null) && (! which exa &>/dev/null); then
+    echo "Installing eza..."
+else
+    echo "eza or exa is already installed"
+fi
+
+PLATFORM=$(uname -s)
+IS_DEBIAN=false
+IS_MACOS=false
+
+function MACOS() {
+    if [[ "$IS_MACOS" == true ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function DEBIAN() {
+    if [[ "$IS_DEBIAN" == true ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+if [[ "$PLATFORM" == "Linux" ]]; then
+  IS_DEBIAN=true
+elif [[ "$PLATFORM" == "Darwin" ]]; then
+  IS_MACOS=true
+else
+  echo "Unsupported platform: $PLATFORM"
+  exit 1
+fi
+
+if MACOS; then
+    echo "Detected macOS platform"
+elif DEBIAN; then
+    echo "Detected Debian-based system"
+else
+    echo "Unsupported platform: $PLATFORM"
+    exit 1
+fi
+
+ECHO="echo -n"
 
 $ECHO "hello"
 
