@@ -45,7 +45,7 @@ ohai() {
 }
 
 info() {
-    printf "[{tty_blue}INFO${tty_reset}] %s\n" "$(chomp "$1")" >&2
+    printf "${tty_blue}INFO${tty_reset}: %s\n" "$(chomp "$1")" >&2
 }
 
 warn() {
@@ -127,11 +127,15 @@ fi
 
 # deletes the temp directory
 function cleanup {
+    cd "$PDIR" || exit 1
+    echo "Cleaning up temporary files..."
     rm -rf "$WORK_DIR"
 }
 
 # register the cleanup function to be called on the EXIT signal
 trap cleanup EXIT
+
+cd $WORK_DIR
 
 SPWD=$(pwd)
 USER=$(whoami)
@@ -217,9 +221,6 @@ fi
 
 # Set git branch name to master
 git config --global init.defaultBranch master &> /dev/null
-
-# Set the working directory to the script's directory
-DIR=$(pwd)
 
 # Homebrew path
 if MACOS; then
@@ -360,7 +361,6 @@ fi
 info "Installing fonts..."
 NERDFONT_VERSION=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
 echo "Installing nerd fonts..."
-cd $WORK_DIR
 rm -vf *.ttf # delete all font files in there
 echo "Downloading Cascadia Code..."
 curl -Lo CascadiaCode.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/CascadiaCode.tar.xz"
@@ -375,7 +375,7 @@ for font_file in $WORK_DIR/*.ttf; do
         cp "$font_file" $HOME/Library/Fonts/
     fi
 done
-cd $DIR
+
 if DEBIAN; then
     info "Updating font cache..."
     sudo fc-cache -f -v >/dev/null
@@ -391,11 +391,12 @@ if confirm "Install Rust compiler"; then
         info "Installing rust compiler..."
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
         . "$HOME/.cargo/env" # source cargo
-        confirm "Install WASM toolchain" && rustup target add wasm32-unknown-unknown
-        confirm "Install nightly toolchain" && rustup toolchain install nightly
     else
         . "$HOME/.cargo/env"
     fi
+    confirm "Install WASM toolchain" && rustup target add wasm32-unknown-unknown
+    confirm "Install nightly toolchain" && rustup toolchain install nightly
+    RUST_INSTALLED=true
 fi
 
 if ! which lazygit &>/dev/null; then
@@ -403,11 +404,9 @@ if ! which lazygit &>/dev/null; then
     if DEBIAN; then
         # Lazygit
         LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
-        cd $WORK_DIR
         curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
         tar xf lazygit.tar.gz lazygit
         install lazygit -D -t $HOME/.local/bin/
-        cd $DIR
     elif MACOS; then
         $INSTALL lazygit >/dev/null
     fi
@@ -417,11 +416,9 @@ if ! which nvim &>/dev/null; then
     info "Installing neovim..."
     if DEBIAN; then
         NEOVIM_VERSION=$(curl -s "https://api.github.com/repos/neovim/neovim/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
-        cd $WORK_DIR
         curl -Lo neovim.tar.gz "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux-x86_64.tar.gz"
         tar xf neovim.tar.gz
         cp -r nvim-linux-x86_64/. /usr/local
-        cd $DIR
     elif MACOS; then
         $INSTALL neovim >/dev/null
     fi
@@ -438,7 +435,11 @@ if ! which termdown &>/dev/null; then
 fi
 
 if ! which typst &>/dev/null; then
-    confirm "Install Typst" && cargo install --locked typst-cli
+    if [ "$RUST_INSTALLED" = true ]; then
+        confirm "Install Typst" && cargo install --locked typst-cli
+    else
+        warn "Typst requires Rust, install the Rust toolchain, then run 'cargo install --locked typst-cli' to install Typst."
+    fi
 fi
 
 # Install oh-my-zsh
@@ -457,14 +458,16 @@ fi
 
 # copy all dotfiles
 info "Extracting dotpackages..."
+PWD=$(pwd)
+echo "Current path: $PWD"
 UBUNTU_SETUP_VERSION=$(curl -s "https://api.github.com/repos/sunipkm/ubuntu-setup/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
-bash -c $(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/v$UBUNTU_SETUP_VERSION/dotfiles_installer.sh)
+curl -Lo dotfiles_installer.sh "https://github.com/sunipkm/ubuntu-setup/releases/download/v$UBUNTU_SETUP_VERSION/dotfiles_installer.sh"
+bash dotfiles_installer.sh
 if [ $? -ne 0 ]; then
     warn "Failed to extract dotfiles, trying to copy manually..."
 fi
 
 if DEBIAN; then
-    cp -r $DIR/dotfiles_debian/. $HOME/
     # set LD_LIBRARY_PATH in .zshrc
     sed -i '/#LD_LIBRARY_PATH/c\export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH' $HOME/.zshrc
 elif MACOS; then
@@ -482,7 +485,6 @@ fi
 
 if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
     info "Installing python..."
-    cd $WORK_DIR
     if DEBIAN; then
         MINICONDA_INSTALLER=Miniconda3-latest-Linux-$ARCH.sh
     elif MACOS; then
@@ -493,7 +495,6 @@ if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
     ./$MINICONDA_INSTALLER -b -u -p $HOME/.miniconda3
     source $HOME/.miniconda3/bin/activate
     conda config --set changeps1 false
-    cd $DIR
 else
     source $HOME/.miniconda3/bin/activate
 fi
@@ -522,7 +523,7 @@ fi
 info "Installing VS Code extensions..."
 while read -r line; do
     code --install-extension "$line"
-done <"$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/extensions.txt)"
+done < <(printf '%s\n' "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/extensions.txt)")
 
 if DEBIAN; then
     info "Cleaning up apt cache..."
@@ -565,5 +566,3 @@ if DEBIAN; then
     fi
     ohai "Run the following command to install the proprietary Microsoft core fonts:\nsudo apt-get install -y ttf-mscorefonts-installer"
 fi
-
-cd $PDIR
