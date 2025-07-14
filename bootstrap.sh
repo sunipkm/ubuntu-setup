@@ -445,7 +445,7 @@ fi
 
 if ! which typst &>/dev/null; then
     if [ "$RUST_INSTALLED" = true ]; then
-        confirm "Install Typst" && cargo install --locked typst-cli
+        confirm "Install Typst" && cargo install --locked typst-cli --root-dir /usr/local/bin
     else
         warn "Typst requires Rust, install the Rust toolchain, then run 'cargo install --locked typst-cli' to install Typst."
     fi

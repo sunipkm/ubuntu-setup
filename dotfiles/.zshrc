@@ -10,7 +10,7 @@ source $ZPLUG_HOME/init.zsh
 export ZSH="$HOME/.oh-my-zsh"
 # export EDITOR="nvim"
 export PATH="$HOME/.tmux/plugins/tmuxifier/bin:$PATH"
-export PATH=$HOME/.local/bin:$PATH
+export PATH=$HOME/.local/bin:/usr/local/bin:$PATH
 
 plugins=(
   git
