@@ -206,16 +206,16 @@ fi
 
 # Get git email
 if [[ $(git config --global user.email) ]]; then
-    echo "Git email already set: $(git config --global user.email)"
+    info "Git email already set: $(git config --global user.email)"
 else
-    read -p "Enter your git email: " GITEMAIL
+    read -p "${tty_bold}Enter your git email: ${tty_reset}" GITEMAIL
     git config --global user.email "$GITEMAIL"
 fi
 # Get git username
 if [[ $(git config --global user.name) ]]; then
-    echo "Git username already set: $(git config --global user.name)"
+    info "Git username already set: $(git config --global user.name)"
 else
-    read -p "Enter your git full name: " GITUSER
+    read -p "${tty_bold}Enter your git full name: ${tty_reset}" GITUSER
     git config --global user.name "$GITUSER"
 fi
 
@@ -263,22 +263,24 @@ export PATH="$HOME/.local/bin:/usr/local/bin:$PATH" >/dev/null
 
 if ! which kitty &>/dev/null; then
     info "Installing kitty..."
-    curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
     if DEBIAN; then
+        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin dest=/usr/local
         # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
         # your system-wide PATH)
-        ln -sf ~/.local/kitty.app/bin/kitty ~/.local/kitty.app/bin/kitten ~/.local/bin/
+        ln -sf /usr/local/kitty.app/bin/kitty /usr/local/kitty.app/bin/kitten /usr/local/bin/
         # Place the kitty.desktop file somewhere it can be found by the OS
-        cp ~/.local/kitty.app/share/applications/kitty.desktop ~/.local/share/applications/
+        cp /usr/local/kitty.app/share/applications/kitty.desktop ~/.local/share/applications/
         # If you want to open text files and images in kitty via your file manager also add the kitty-open.desktop file
-        cp ~/.local/kitty.app/share/applications/kitty-open.desktop ~/.local/share/applications/
+        cp /usr/local/kitty.app/share/applications/kitty-open.desktop ~/.local/share/applications/
         # Update the paths to the kitty and its icon in the kitty desktop file(s)
         sed -i "s|Icon=kitty|Icon=$(readlink -f ~)/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" ~/.local/share/applications/kitty*.desktop
         sed -i "s|Exec=kitty|Exec=$(readlink -f ~)/.local/kitty.app/bin/kitty|g" ~/.local/share/applications/kitty*.desktop
         # Make xdg-terminal-exec (and hence desktop environments that support it use kitty)
         echo 'kitty.desktop' >~/.config/xdg-terminals.list
         echo "Setting kitty as default terminal..."
-        sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator ~/.local/bin/kitty 50
+        sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator /usr/local/bin/kitty 50
+    elif MACOS; then
+        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
     fi
 fi
 
@@ -452,7 +454,7 @@ fi
 # Install oh-my-zsh
 if ! [ -d "$HOME/.oh-my-zsh" ]; then
     info "Installing oh-my-zsh..."
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh) --unattended"
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --unattended
 fi
 
 # Install catppuccin for tmux
