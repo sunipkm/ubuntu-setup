@@ -465,7 +465,7 @@ fi
 # Install oh-my-zsh
 if ! [ -d "$HOME/.oh-my-zsh" ]; then
     info "Installing oh-my-zsh..."
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" --unattended
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 fi
 
 # Install powerlevel10k
