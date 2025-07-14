@@ -35,16 +35,16 @@ tail --lines +"$SCRIPT_END" "$0"| base64 -d| tar --file - --extract --gzip --dir
 
 # copy the files
 if [[ -d "$WORK_DIR/dotfiles" ]]; then
-    cp -r "$WORK_DIR/dotfiles/." "$HOME/"
+    rsync --progress -r -u "$WORK_DIR/dotfiles/" "$HOME/"
 else
     echo "No dotfiles directory found in the extracted files."
     exit 1
 fi
 
 if [[ "$PLATFORM" == "Linux" && -d "$WORK_DIR/dotfiles_debian" ]]; then
-    cp -r "$WORK_DIR/dotfiles_debian/." "$HOME/"
+    rsync --progress -r -u "$WORK_DIR/dotfiles_debian/." "$HOME/"
 elif [[ "$PLATFORM" == "Darwin" && -d "$WORK_DIR/dotfiles_macos" ]]; then
-    cp -r "$WORK_DIR/dotfiles_macos/." "$HOME/"
+    rsync --progress -r -u "$WORK_DIR/dotfiles_macos/." "$HOME/"
 else
     echo "No platform-specific dotfiles directory found."
 fi

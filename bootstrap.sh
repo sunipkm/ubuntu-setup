@@ -249,6 +249,13 @@ elif DEBIAN; then
     $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran python3-pip >/dev/null
 fi
 
+if DEBIAN; then
+    if ! which rsync &>/dev/null; then
+        info "Installing rsync..."
+        $INSTALL rsync >/dev/null
+    fi
+fi
+
 info "Create local install path..."
 mkdir -p ~/.local/bin >/dev/null
 info "Set path to include local dir..."
@@ -454,6 +461,32 @@ if ! [ -d "$HOME/.config/tmux/catppuccin" ]; then
     CATPPUCCIN_VERSION=$(curl -s "https://api.github.com/repos/catppuccin/tmux/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
     mkdir -p $HOME/.config/tmux/plugins/catppuccin
     git clone -b v$CATPPUCCIN_VERSION https://github.com/catppuccin/tmux.git $HOME/.config/tmux/plugins/catppuccin/tmux
+fi
+
+if ! [ -d "$HOME/.tmux/plugins/tmuxifier" ]; then
+    info "Installing tmuxifier..."
+    mkdir -p $HOME/.tmux/plugins
+    git clone https://github.com/jimeh/tmuxifier.git $HOME/.tmux/plugins/tmuxifier
+    if [ $? -ne 0 ]; then
+        warn "Failed to clone tmuxifier."
+    fi
+fi
+
+if ! [ -d "$HOME/.tmux/plugins/tpm" ]; then
+    info "Installing tmux plugin manager..."
+    mkdir -p $HOME/.tmux/plugins
+    git clone https://github.com/tmux-plugins/tpm.git $HOME/.tmux/plugins/tpm
+    if [ $? -ne 0 ]; then
+        warn "Failed to clone tpm."
+    fi
+fi
+
+if ! [ -d "$HOME/.zplug"]; then
+    info "Installing zplug..."
+    git clone https://github.com/zplug/zplug $HOME/.zplug
+    if [ $? -ne 0 ]; then
+        warn "Failed to clone zplug."
+    fi
 fi
 
 # copy all dotfiles
