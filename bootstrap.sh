@@ -143,6 +143,12 @@ USER=$(whoami)
 IS_MACOS=false
 IS_DEBIAN=false
 
+if [ -f "/etc/wsl.conf" ]; then
+    IS_WSL=true
+else
+    IS_WSL=false
+fi
+
 function MACOS() {
     if [[ "$IS_MACOS" == true ]]; then
         return 0
@@ -153,6 +159,14 @@ function MACOS() {
 
 function DEBIAN() {
     if [[ "$IS_DEBIAN" == true ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function WSL() {
+    if [[ "$IS_WSL" == true ]]; then
         return 0
     else
         return 1
@@ -277,7 +291,7 @@ mkdir -p ~/.local/bin >/dev/null
 info "Set path to include local dir..."
 export PATH="$HOME/.local/bin:/usr/local/bin:$PATH" >/dev/null
 
-if ! which kitty &>/dev/null; then
+if ! which kitty &>/dev/null && ! WSL; then
     info "Installing kitty..."
     if DEBIAN; then
         curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
