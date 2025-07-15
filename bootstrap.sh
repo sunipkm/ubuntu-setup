@@ -264,7 +264,7 @@ if MACOS; then
     $INSTALL wget >/dev/null
     $INSTALL pkg-config libusb gfortran pv
 elif DEBIAN; then
-    $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran cifs-tools >/dev/null
+    $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran cifs-utils >/dev/null
 fi
 
 if DEBIAN; then
