@@ -58,21 +58,21 @@ have_sudo_access() {
     if [[ ! -x "/usr/bin/sudo" ]]; then
         return 1
     fi
-
+    
     local -a SUDO=("/usr/bin/sudo")
     if [[ -n "${SUDO_ASKPASS-}" ]]; then
         SUDO+=("-A")
     fi
-
+    
     if [[ -z "${HAVE_SUDO_ACCESS-}" ]]; then
         "${SUDO[@]}" -v && "${SUDO[@]}" -l mkdir &>/dev/null
         HAVE_SUDO_ACCESS="$?"
     fi
-
+    
     if [[ "${HAVE_SUDO_ACCESS}" -ne 0 ]]; then
         abort "Need sudo access on (e.g. the user ${USER} needs to be an Administrator)!"
     fi
-
+    
     return "${HAVE_SUDO_ACCESS}"
 }
 
@@ -103,11 +103,11 @@ confirm() {
     # call with a prompt string or use a default
     read -r -p "${tty_bold}${1:-Are you sure}?${tty_reset} [y/N] " response
     case "$response" in
-    [yY][eE][sS] | [yY])
-        true
+        [yY][eE][sS] | [yY])
+            true
         ;;
-    *)
-        false
+        *)
+            false
         ;;
     esac
 }
@@ -250,10 +250,9 @@ if MACOS; then
         echo "Detected x86_64 architecture"
         eval "$(/usr/local/bin/brew shellenv)"
     fi
+    info "Setting write permissions to /usr/local..."
+    execute_sudo "chown" "-R" "$USER:$ADMIN" "/usr/local/"
 fi
-
-info "Setting write permissions to /usr/local..."
-execute_sudo "chown" "-R" "$USER:$ADMIN" "/usr/local"
 info "Package manager update..."
 $UPDATE >/dev/null
 info "Package manager upgrade..."
@@ -328,9 +327,10 @@ fi
 
 if (! which eza &>/dev/null) && (! which exa &>/dev/null); then
     $INSTALL eza >/dev/null
-#     if [ $? -ne 0 ]; then
-#         warn "Failed to install eza, trying exa..."
-#     $INSTALL exa >/dev/null
+    if [ $? -ne 0 ]; then
+        warn "Failed to install eza, trying exa..."
+        $INSTALL exa >/dev/null
+    fi
 else
     info "eza or exa is already installed"
 fi
@@ -430,17 +430,52 @@ if ! which starship &>/dev/null; then
     curl -sSf https://starship.rs/install.sh | sh -s -- -y -b $HOME/.local/bin
 fi
 
-if confirm "Install Rust compiler"; then
-    if ! [ -f "$HOME/.cargo/env" ]; then
-        info "Installing rust compiler..."
+if ! which docker &>/dev/null; then
+    if confirm "Install docker engine"; then
+        if DEBIAN && ! WSL; then
+            curl -fsSL https://get.docker.com -o get-docker.sh
+            execute_sudo sh get-docker.sh
+            execute_sudo usermod -aG docker "$USER"
+            DOCKER_INSTALLED=true
+            elif MACOS; then
+            brew cask install docker
+            DOCKER_INSTALLED=true
+        fi
+    fi
+else
+    info "Docker is already installed"
+    DOCKER_INSTALLED=true
+fi
+
+if ! [ -f "$HOME/.cargo/env" ]; then
+    if confirm "Install Rust toolchain"; then
+        info "Installing rust toolchain..."
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
         . "$HOME/.cargo/env" # source cargo
+        RUST_INSTALLED=true
     else
-        . "$HOME/.cargo/env"
+        warn "Rust toolchain not installed, some features may not work."
     fi
+else
+    . "$HOME/.cargo/env" # source cargo
+    RUST_INSTALLED=true
+fi
+
+if $RUST_INSTALLED; then
     confirm "Install WASM toolchain" && rustup target add wasm32-unknown-unknown
     confirm "Install nightly toolchain" && rustup toolchain install nightly
-    RUST_INSTALLED=true
+fi
+
+if $RUST_INSTALLED && $DOCKER_INSTALLED; then
+    if ! which cross &>/dev/null; then
+        if confirm "Install cross (cross-compilation tool)"; then
+            info "Installing cross..."
+            # Install cross using cargo
+            if ! which cross &>/dev/null; then
+                cargo install cross --git https://github.com/cross-rs/cross
+            fi
+        fi
+    fi
 fi
 
 if ! which lazygit &>/dev/null; then
@@ -462,7 +497,7 @@ if ! which nvim &>/dev/null; then
         NEOVIM_VERSION=$(curl -s "https://api.github.com/repos/neovim/neovim/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
         curl -Lo neovim.tar.gz "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux-x86_64.tar.gz"
         tar xf neovim.tar.gz
-        cp -r nvim-linux-x86_64/. /usr/local
+        execute_sudo "cp" "-r" "nvim-linux-x86_64/." "/usr/local"
     elif MACOS; then
         $INSTALL neovim >/dev/null
     fi
@@ -480,7 +515,8 @@ fi
 
 if ! which typst &>/dev/null; then
     if [ "$RUST_INSTALLED" = true ]; then
-        confirm "Install Typst" && cargo install --locked typst-cli --root /usr/local
+        confirm "Install Typst" && cargo install --locked typst-cli
+        execute_sudo ln -s "$HOME/.cargo/bin/typst" /usr/local/bin/
     else
         warn "Typst requires Rust, install the Rust toolchain, then run 'cargo install --locked typst-cli' to install Typst."
     fi
@@ -600,7 +636,7 @@ pip install skmpython@git+https://github.com/sunipkm/skmpython
 
 if ! which code &>/dev/null; then
     info "Installing Visual Studio Code..."
-    if DEBIAN; then
+    if DEBIAN && ! WSL; then
         sudo apt-get install -y wget gpg >/dev/null
         wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
         sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
@@ -620,33 +656,41 @@ while read -r line; do
     code --install-extension "$line"
 done < <(printf '%s\n' "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/extensions.txt)")
 
+if ! which node &>/dev/null; then
+    if confirm "Install Node.js"; then
+        if DEBIAN; then
+            $INSTALL nodejs >/dev/null
+            if ! which npm &>/dev/null; then
+                info "Installing npm..."
+                $INSTALL npm >/dev/null
+            fi
+        elif MACOS; then
+            $INSTALL node >/dev/null
+        fi
+    fi
+fi
+
+if ! which npm &>/dev/null; then
+    NODE_INSTALLED=false
+else
+    NODE_INSTALLED=true
+fi
+
+if $NODE_INSTALLED; then
+    if ! which yarn &>/dev/null; then
+        info "Installing Yarn..."
+        npm install --global yarn >/dev/null
+    fi
+fi
+
+if DEBIAN; then
+    execute_sudo "apt-get" "install" "-y" "ttf-mscorefonts-installer"
+fi
+
 if DEBIAN; then
     info "Cleaning up apt cache..."
     execute_sudo apt-get autoremove -y
 elif MACOS; then
     info "Cleaning up Homebrew cache..."
     brew cleanup --prune all &>/dev/null
-fi
-
-if ! which node &>/dev/null; then
-    info "Installing Node.js..."
-    if DEBIAN; then
-        $INSTALL nodejs >/dev/null
-        if ! which npm &>/dev/null; then
-            info "Installing npm..."
-            $INSTALL npm >/dev/null
-        fi
-    elif MACOS; then
-        $INSTALL node >/dev/null
-    fi
-fi
-
-if ! which yarn &>/dev/null; then
-    info "Installing Yarn..."
-    npm install --global yarn >/dev/null
-fi
-
-if DEBIAN; then
-    ohai "Run the following command to install the proprietary Microsoft core fonts:"
-    ohai "sudo apt-get install -y ttf-mscorefonts-installer"
 fi

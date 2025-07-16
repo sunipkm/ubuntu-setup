@@ -44,5 +44,7 @@ bash -i -c "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/
    1. Installs [thefuck]
    1. Installs [`vscode`](https://code.visualstudio.com/) and necessary extensions.
    1. Installs the `zsh` shell, and sets it as the default shell.
+   2. Installs Docker.
+   3. Installs Rust compiler, optionally WASM and nightly toolchains, typst, and [`cross`](https://github.com/cross-rs/cross) if Docker is installed.
 6.  Fixes the `bat` command name conflict.
 7.  Generates an ED25519 key.
