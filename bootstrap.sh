@@ -212,9 +212,9 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
         curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh --output install.sh
         source ./install.sh
     fi
-    UPDATE=brew update
-    UPGRADE=brew upgrade
-    INSTALL=brew install
+    UPDATE="brew update"
+    UPGRADE="brew upgrade"
+    INSTALL="brew install"
     ADMIN=admin
 else
     abort "This script is intended for Debian Linux and macOS platforms only."
@@ -436,7 +436,7 @@ if ! which docker &>/dev/null; then
             execute_sudo usermod -aG docker "$USER"
             DOCKER_INSTALLED=true
             elif MACOS; then
-            brew cask install docker
+            brew install --cask docker
             DOCKER_INSTALLED=true
         fi
     fi
