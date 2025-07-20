@@ -577,7 +577,7 @@ if ! [ -d "$HOME/.tmux/plugins/tpm" ]; then
     fi
 fi
 
-if ! [ -d "$HOME/.zplug"]; then
+if ! [ -d "$HOME/.zplug" ]; then
     info "Installing zplug..."
     git clone https://github.com/zplug/zplug $HOME/.zplug
     if [ $? -ne 0 ]; then
