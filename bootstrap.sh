@@ -288,9 +288,8 @@ mkdir -p ~/.local/bin >/dev/null
 info "Set path to include local dir..."
 export PATH="$HOME/.local/bin:/usr/local/bin:$PATH" >/dev/null
 
-if ! which kitty &>/dev/null && ! WSL; then
-    info "Installing kitty..."
-    if DEBIAN; then
+if DEBIAN; then
+    if ! which kitty &>/dev/null && ! WSL; then
         curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
         # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
         # your system-wide PATH)
@@ -306,8 +305,10 @@ if ! which kitty &>/dev/null && ! WSL; then
         echo 'kitty.desktop' >~/.config/xdg-terminals.list
         echo "Setting kitty as default terminal..."
         update-my-alternatives --install ~/.local/bin/x-terminal-emulator x-terminal-emulator ~/.local/bin/kitty 50
-    elif MACOS; then
-        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
+    fi
+elif MACOS; then
+    if [ ! -f "/Applications/kitty.app" ]; then
+        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
     fi
 fi
 
@@ -396,6 +397,7 @@ if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
 fi
 
 # Fonts
+cd $WORK_DIR
 info "Installing fonts..."
 NERDFONT_VERSION=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
 echo "Installing nerd fonts..."
