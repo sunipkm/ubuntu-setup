@@ -250,8 +250,6 @@ if MACOS; then
         echo "Detected x86_64 architecture"
         eval "$(/usr/local/bin/brew shellenv)"
     fi
-    info "Setting write permissions to /usr/local..."
-    execute_sudo "chown" "-R" "$USER:$ADMIN" "/usr/local/"
 fi
 info "Package manager update..."
 $UPDATE >/dev/null
