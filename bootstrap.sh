@@ -464,6 +464,8 @@ fi
 if $RUST_INSTALLED; then
     confirm "Install WASM toolchain" && rustup target add wasm32-unknown-unknown
     confirm "Install nightly toolchain" && rustup toolchain install nightly
+    cargo install cargo-cache
+    cargo install cargo-clean-all
 fi
 
 if $RUST_INSTALLED && $DOCKER_INSTALLED; then
