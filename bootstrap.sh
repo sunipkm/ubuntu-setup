@@ -305,6 +305,10 @@ if DEBIAN; then
         echo 'kitty.desktop' >~/.config/xdg-terminals.list
         echo "Setting kitty as default terminal..."
         update-my-alternatives --install ~/.local/bin/x-terminal-emulator x-terminal-emulator ~/.local/bin/kitty 50
+        # Set as default terminal in gnome settings if gsettings is available
+        if ! which gsettings &>/dev/null; then
+            gsettings set org.gnome.desktop.default-applications.terminal exec "$(readlink -f ~)/.local/bin/kitty"
+        fi
     fi
 elif MACOS; then
     if [ ! -f "/Applications/kitty.app" ]; then
