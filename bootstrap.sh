@@ -701,7 +701,7 @@ fi
 if $NODE_INSTALLED; then
     if ! which yarn &>/dev/null; then
         info "Installing Yarn..."
-        npm install --global yarn >/dev/null
+        execute_sudo "npm install --global yarn >/dev/null"
     fi
 fi
 
