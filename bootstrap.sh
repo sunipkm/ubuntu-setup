@@ -142,6 +142,7 @@ USER=$(whoami)
 
 IS_MACOS=false
 IS_DEBIAN=false
+IS_INTERACTIVE=false
 
 if [ -f "/etc/wsl.conf" ]; then
     IS_WSL=true
@@ -167,6 +168,14 @@ function DEBIAN() {
 
 function WSL() {
     if [[ "$IS_WSL" == true ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function INTERACTIVE() {
+    if [[ "$IS_INTERACTIVE" == true ]]; then
         return 0
     else
         return 1
@@ -288,26 +297,30 @@ mkdir -p ~/.local/bin >/dev/null
 info "Set path to include local dir..."
 export PATH="$HOME/.local/bin:/usr/local/bin:$PATH" >/dev/null
 
-if DEBIAN; then
-    if ! which kitty &>/dev/null && ! WSL; then
-        curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
-        # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
-        # your system-wide PATH)
-        ln -sf ~/.local/kitty.app/bin/kitty ~/.local/kitty.app/bin/kitten ~/.local/bin/
-        # Place the kitty.desktop file somewhere it can be found by the OS
-        cp ~/.local/kitty.app/share/applications/kitty.desktop ~/.local/share/applications/
-        # If you want to open text files and images in kitty via your file manager also add the kitty-open.desktop file
-        cp ~/.local/kitty.app/share/applications/kitty-open.desktop ~/.local/share/applications/
-        # Update the paths to the kitty and its icon in the kitty desktop file(s)
-        sed -i "s|Icon=kitty|Icon=$(readlink -f ~)/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" ~/.local/share/applications/kitty*.desktop
-        sed -i "s|Exec=kitty|Exec=$(readlink -f ~)/.local/kitty.app/bin/kitty|g" ~/.local/share/applications/kitty*.desktop
-        # Make xdg-terminal-exec (and hence desktop environments that support it use kitty)
-        echo 'kitty.desktop' >~/.config/xdg-terminals.list
-        echo "Setting kitty as default terminal..."
-        update-my-alternatives --install ~/.local/bin/x-terminal-emulator x-terminal-emulator ~/.local/bin/kitty 50
-        # Set as default terminal in gnome settings if gsettings is available
-        if ! which gsettings &>/dev/null; then
-            gsettings set org.gnome.desktop.default-applications.terminal exec "$(readlink -f ~)/.local/bin/kitty"
+confirm "Is this an interactive system?" && IS_INTERACTIVE=true
+
+if DEBIAN ; then
+    if INTERACTIVE; then
+        if ! which kitty &>/dev/null && ! WSL; then
+            curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
+            # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
+            # your system-wide PATH)
+            ln -sf ~/.local/kitty.app/bin/kitty ~/.local/kitty.app/bin/kitten ~/.local/bin/
+            # Place the kitty.desktop file somewhere it can be found by the OS
+            cp ~/.local/kitty.app/share/applications/kitty.desktop ~/.local/share/applications/
+            # If you want to open text files and images in kitty via your file manager also add the kitty-open.desktop file
+            cp ~/.local/kitty.app/share/applications/kitty-open.desktop ~/.local/share/applications/
+            # Update the paths to the kitty and its icon in the kitty desktop file(s)
+            sed -i "s|Icon=kitty|Icon=$(readlink -f ~)/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" ~/.local/share/applications/kitty*.desktop
+            sed -i "s|Exec=kitty|Exec=$(readlink -f ~)/.local/kitty.app/bin/kitty|g" ~/.local/share/applications/kitty*.desktop
+            # Make xdg-terminal-exec (and hence desktop environments that support it use kitty)
+            echo 'kitty.desktop' >~/.config/xdg-terminals.list
+            echo "Setting kitty as default terminal..."
+            update-my-alternatives --install ~/.local/bin/x-terminal-emulator x-terminal-emulator ~/.local/bin/kitty 50
+            # Set as default terminal in gnome settings if gsettings is available
+            if ! which gsettings &>/dev/null; then
+                gsettings set org.gnome.desktop.default-applications.terminal exec "$(readlink -f ~)/.local/bin/kitty"
+            fi
         fi
     fi
 elif MACOS; then
@@ -640,27 +653,30 @@ fi
 pip install numpy matplotlib xarray dask netcdf4 astropy scipy scikit-image natsort fortls ipykernel jupyter
 pip install skmpython@git+https://github.com/sunipkm/skmpython
 
-if ! which code &>/dev/null; then
-    info "Installing Visual Studio Code..."
-    if DEBIAN && ! WSL; then
-        sudo apt-get install -y wget gpg >/dev/null
-        wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
-        sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
-        sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
-        sudo apt-get install -y apt-transport-https >/dev/null
-        sudo apt-get update >/dev/null
-        sudo apt-get install -y code >/dev/null
-        sudo apt-get -f install -y >/dev/null
-    elif MACOS; then
-        brew install --cask visual-studio-code >/dev/null
-        ln -s /Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code ~/.local/bin/code
+if INTERACTIVE; then
+    if ! which code &>/dev/null; then
+        info "Installing Visual Studio Code..."
+        if DEBIAN && ! WSL; then
+            sudo apt-get install -y wget gpg >/dev/null
+            wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
+            sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
+            sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
+            sudo apt-get install -y apt-transport-https >/dev/null
+            sudo apt-get update >/dev/null
+            sudo apt-get install -y code >/dev/null
+            sudo apt-get -f install -y >/dev/null
+        elif MACOS; then
+            brew install --cask visual-studio-code >/dev/null
+            ln -s /Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code ~/.local/bin/code
+        fi
     fi
-fi
 
-info "Installing VS Code extensions..."
-while read -r line; do
-    code --install-extension "$line"
-done < <(printf '%s\n' "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/extensions.txt)")
+
+    info "Installing VS Code extensions..."
+    while read -r line; do
+        code --install-extension "$line"
+    done < <(printf '%s\n' "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/extensions.txt)")
+fi
 
 if ! which node &>/dev/null; then
     if confirm "Install Node.js"; then
