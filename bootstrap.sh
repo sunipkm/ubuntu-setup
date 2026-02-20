@@ -112,9 +112,6 @@ confirm() {
     esac
 }
 
-# the directory of the script
-PDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 # the temp directory used, within $DIR
 # omit the -p parameter to create a temporal directory in the default location
 WORK_DIR=$(mktemp -d)
@@ -127,7 +124,7 @@ fi
 
 # deletes the temp directory
 function cleanup {
-    cd "$PDIR" || exit 1
+    cd "$HOME" || exit 1
     echo "Cleaning up temporary files..."
     rm -rf "$WORK_DIR"
 }
