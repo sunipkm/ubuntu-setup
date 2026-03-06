@@ -151,9 +151,6 @@
     "jupyter.interactiveWindow.creationMode": "perFile",
     "editor.accessibilitySupport": "off",
     "git.autofetch": true,
-    "arduino.useArduinoCli": true,
-    "arduino.path": "/opt/homebrew/bin/",
-    "arduino.commandPath": "arduino-cli",
     "[c]": {
         "editor.defaultFormatter": "ms-vscode.cpptools"
     },
@@ -163,7 +160,6 @@
     "cmake.configureOnOpen": false,
     "interactiveWindow.executeWithShiftEnter": true,
     "terminal.integrated.enableImages": true,
-    "terminal.integrated.fontFamily": "monospace",
     "indentRainbow.excludedLanguages": [
         "rust",
         "json",
@@ -215,4 +211,39 @@
             }
         }
     },
+    "[markdown]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "files.readonlyFromPermissions": true,
+    "[idl]": {
+        "editor.defaultFormatter": "idl.idl-for-vscode",
+        "editor.formatOnSave": true
+    },
+    "[csv]": {
+        "files.autoSave": "off"
+    },
+    "terminal.integrated.inheritEnv": false,
+    "workbench.editorAssociations": {
+        "*.copilotmd": "vscode.markdown.preview.editor",
+        "{hexdiff}:/**/*.*": "hexEditor.hexedit",
+        "*.bin": "hexEditor.hexedit"
+    },
+    "[html]": {
+        "editor.defaultFormatter": "vscode.html-language-features"
+    },
+    "[javascript]": {
+        "editor.defaultFormatter": "xaver.clang-format"
+    },
+    "files.associations": {
+        "*.f": "FortranFixedForm",
+        "*.h": "c"
+    },
+    "[css]": {
+        "editor.defaultFormatter": "vscode.css-language-features"
+    },
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "terminal.integrated.fontLigatures.enabled": true,
+    "terminal.integrated.fontFamily": "'MesloLGMDZ Nerd Font Mono', monospace",
 }

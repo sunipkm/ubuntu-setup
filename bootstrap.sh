@@ -140,8 +140,9 @@ USER=$(whoami)
 IS_MACOS=false
 IS_DEBIAN=false
 IS_INTERACTIVE=false
+IS_WSL=false
 
-if [ -f "/etc/wsl.conf" ]; then
+if [[ "$(< /proc/version)" == *@(Microsoft|WSL)* ]]; then
     IS_WSL=true
 else
     IS_WSL=false
@@ -376,6 +377,11 @@ if ! which jq &>/dev/null; then
     $INSTALL jq >/dev/null
 else
     info "jq is already installed"
+fi
+if ! which btop &>/dev/null; then
+    $INSTALL btop >/dev/null
+else
+    info "btop is already installed"
 fi
 
 if DEBIAN; then
