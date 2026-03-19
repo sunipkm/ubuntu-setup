@@ -133,6 +133,7 @@ ssh_fzf() {
 #source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
 
 #HOMEBREW_IMPORT
+#HOMEBREW_COMPLETIONS
 
 function duls { paste <( du -hs -- "$@" | cut -f1 ) <( ls -ld -- "$@" ) }
 fpath=($fpath "$HOME/.zfunctions")

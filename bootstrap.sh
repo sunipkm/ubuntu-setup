@@ -633,6 +633,7 @@ elif MACOS; then
     else
         sed -i '' "s/#HOMEBREW_IMPORT/eval \"\$\(\/usr\/local\/bin\/brew shellenv\)\"/g" $HOME/.zshrc
     fi
+    sed -i '' "s/#HOMEBREW_COMPLETIONS/fpath\=\(\$fpath \"\$HOMEBREW_PREFIX\/share\/zsh\/site-functions\"\)/g" $HOME/.zshrc
     echo 'include $HOMEBREW_CELLAR/nano/*/share/nano/*.nanorc' >>$HOME/.nanorc
 fi
 
