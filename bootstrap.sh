@@ -486,6 +486,19 @@ fi
 if INTERACTIVE || WSL; then
     cd $WORK_DIR
     info "Installing fonts..."
+    SYSTEM_FONT_DIR=""
+    if DEBIAN; then
+        SYSTEM_FONT_DIR="/usr/share/fonts/truetype"
+    elif ARCHLINUX; then
+        SYSTEM_FONT_DIR="/usr/share/fonts/TTF"
+    elif FEDORA; then
+        SYSTEM_FONT_DIR="/usr/share/fonts/truetype"
+    fi
+
+    if [[ -n "$SYSTEM_FONT_DIR" ]] && ! WSL; then
+        sudo mkdir -p "$SYSTEM_FONT_DIR"
+    fi
+
     NERDFONT_VERSION=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
     echo "Installing nerd fonts..."
     rm -vf *.ttf # delete all font files in there
@@ -511,7 +524,7 @@ if INTERACTIVE || WSL; then
                 break
             fi
         elif DEBIAN || ARCHLINUX || FEDORA; then
-            sudo cp "$font_file" /usr/share/fonts/truetype/
+            sudo cp "$font_file" "$SYSTEM_FONT_DIR/"
         elif MACOS; then
             cp "$font_file" $HOME/Library/Fonts/
         fi
