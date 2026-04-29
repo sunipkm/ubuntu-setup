@@ -308,9 +308,9 @@ if MACOS; then
 elif DEBIAN; then
     $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran cifs-utils >/dev/null
 elif ARCHLINUX; then
-    $INSTALL base-devel pkgconf libusb clang gfortran cifs-utils wget python-pip >/dev/null
+    $INSTALL base-devel pkgconf libusb clang gcc-fortran cifs-utils wget python-pip >/dev/null
 elif FEDORA; then
-    $INSTALL gcc gcc-c++ make pkgconf-pkg-config libusbx-devel clang gfortran cifs-utils wget python3-pip >/dev/null
+    $INSTALL gcc gcc-c++ make pkgconf-pkg-config libusbx-devel clang gcc-gfortran cifs-utils wget python3-pip >/dev/null
 fi
 
 if DEBIAN || ARCHLINUX || FEDORA; then
