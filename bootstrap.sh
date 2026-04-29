@@ -487,6 +487,9 @@ if INTERACTIVE || WSL; then
     cd $WORK_DIR
     info "Installing fonts..."
     SYSTEM_FONT_DIR=""
+    FONT_TARGET_DIR=""
+    FONTS_ALREADY_PRESENT=false
+    FONT_INSTALLED=false
     if DEBIAN; then
         SYSTEM_FONT_DIR="/usr/share/fonts/truetype"
     elif ARCHLINUX; then
@@ -497,40 +500,63 @@ if INTERACTIVE || WSL; then
 
     if [[ -n "$SYSTEM_FONT_DIR" ]] && ! WSL; then
         sudo mkdir -p "$SYSTEM_FONT_DIR"
+        FONT_TARGET_DIR="$SYSTEM_FONT_DIR"
+    elif MACOS; then
+        FONT_TARGET_DIR="$HOME/Library/Fonts"
+        mkdir -p "$FONT_TARGET_DIR"
     fi
 
-    NERDFONT_VERSION=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
-    echo "Installing nerd fonts..."
-    rm -vf *.ttf # delete all font files in there
-    echo "Downloading Cascadia Code..."
-    curl -Lo CascadiaCode.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/CascadiaCode.tar.xz"
-    tar xf CascadiaCode.tar.xz
-    echo "Downloading Meslo..."
-    curl -Lo Meslo.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/Meslo.tar.xz"
-    tar xf Meslo.tar.xz
-    if DEBIAN; then
-        curl -Lo "aptos.zip" "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip"
-        unzip -o aptos.zip -d aptos >/dev/null
-    fi
-    for font_file in $WORK_DIR/*.ttf; do
-        if WSL; then
-            if command -v powershell.exe &>/dev/null; then
-                font_base=$(basename "$font_file")
-                win_font_file=$(wslpath -w "$font_file")
-                powershell.exe -NoProfile -Command "[void](New-Item -ItemType Directory -Force -Path (Join-Path \$env:LOCALAPPDATA 'Microsoft\\Windows\\Fonts')); Copy-Item -LiteralPath '$win_font_file' -Destination (Join-Path \$env:LOCALAPPDATA 'Microsoft\\Windows\\Fonts\\$font_base') -Force" >/dev/null
-                powershell.exe -NoProfile -Command "New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts' -Name '$font_base (TrueType)' -Value (Join-Path \$env:LOCALAPPDATA 'Microsoft\\Windows\\Fonts\\$font_base') -PropertyType String -Force | Out-Null" >/dev/null
+    if [[ -n "$FONT_TARGET_DIR" ]]; then
+        if compgen -G "$FONT_TARGET_DIR/*Caskaydia*Cove*NerdFont*.ttf" >/dev/null && compgen -G "$FONT_TARGET_DIR/*Meslo*LGS*NerdFont*.ttf" >/dev/null; then
+            if DEBIAN; then
+                if compgen -G "$FONT_TARGET_DIR/*Aptos*.ttf" >/dev/null; then
+                    FONTS_ALREADY_PRESENT=true
+                fi
             else
-                warn "powershell.exe not found, skipping Windows font install from WSL."
-                break
+                FONTS_ALREADY_PRESENT=true
             fi
-        elif DEBIAN || ARCHLINUX || FEDORA; then
-            sudo cp "$font_file" "$SYSTEM_FONT_DIR/"
-        elif MACOS; then
-            cp "$font_file" $HOME/Library/Fonts/
         fi
-    done
+    fi
 
-    if (DEBIAN || ARCHLINUX || FEDORA) && ! WSL; then
+    if $FONTS_ALREADY_PRESENT; then
+        info "Required fonts already installed; skipping font download and installation."
+    else
+        NERDFONT_VERSION=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
+        echo "Installing nerd fonts..."
+        rm -vf *.ttf # delete all font files in there
+        echo "Downloading Cascadia Code..."
+        curl -Lo CascadiaCode.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/CascadiaCode.tar.xz"
+        tar xf CascadiaCode.tar.xz
+        echo "Downloading Meslo..."
+        curl -Lo Meslo.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/Meslo.tar.xz"
+        tar xf Meslo.tar.xz
+        if DEBIAN; then
+            curl -Lo "aptos.zip" "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip"
+            unzip -o aptos.zip -d aptos >/dev/null
+        fi
+        for font_file in $WORK_DIR/*.ttf; do
+            if WSL; then
+                if command -v powershell.exe &>/dev/null; then
+                    font_base=$(basename "$font_file")
+                    win_font_file=$(wslpath -w "$font_file")
+                    powershell.exe -NoProfile -Command "[void](New-Item -ItemType Directory -Force -Path (Join-Path \$env:LOCALAPPDATA 'Microsoft\\Windows\\Fonts')); Copy-Item -LiteralPath '$win_font_file' -Destination (Join-Path \$env:LOCALAPPDATA 'Microsoft\\Windows\\Fonts\\$font_base') -Force" >/dev/null
+                    powershell.exe -NoProfile -Command "New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts' -Name '$font_base (TrueType)' -Value (Join-Path \$env:LOCALAPPDATA 'Microsoft\\Windows\\Fonts\\$font_base') -PropertyType String -Force | Out-Null" >/dev/null
+                    FONT_INSTALLED=true
+                else
+                    warn "powershell.exe not found, skipping Windows font install from WSL."
+                    break
+                fi
+            elif DEBIAN || ARCHLINUX || FEDORA; then
+                sudo cp "$font_file" "$SYSTEM_FONT_DIR/"
+                FONT_INSTALLED=true
+            elif MACOS; then
+                cp "$font_file" $HOME/Library/Fonts/
+                FONT_INSTALLED=true
+            fi
+        done
+    fi
+
+    if (DEBIAN || ARCHLINUX || FEDORA) && ! WSL && $FONT_INSTALLED; then
         info "Updating font cache..."
         sudo fc-cache -f -v >/dev/null
     fi
@@ -861,7 +887,28 @@ fi
 if DEBIAN; then
     execute_sudo "apt-get" "install" "-y" "ttf-mscorefonts-installer"
 elif ARCHLINUX; then
-    $INSTALL ttf-ms-win11 >/dev/null
+    if ! command -v yay &>/dev/null; then
+        if [[ "${EUID:-${UID}}" == "0" ]]; then
+            warn "Running as root; skipping yay bootstrap. Install yay as a regular user first."
+        else
+            info "Installing yay..."
+            YAY_BUILD_DIR="$WORK_DIR/yay-build"
+            rm -rf "$YAY_BUILD_DIR"
+            if ! git clone https://aur.archlinux.org/yay-bin.git "$YAY_BUILD_DIR" >/dev/null 2>&1; then
+                git clone https://aur.archlinux.org/yay.git "$YAY_BUILD_DIR" >/dev/null
+            fi
+            (
+                cd "$YAY_BUILD_DIR" || exit 1
+                makepkg -si --noconfirm >/dev/null
+            ) || warn "Failed to build/install yay."
+        fi
+    fi
+
+    if command -v yay &>/dev/null; then
+        yay -S --noconfirm --needed ttf-ms-fonts ttf-vista-fonts ttf-office-2007-fonts ttf-win7-fonts ttf-ms-win8 ttf-ms-win10 ttf-ms-win11 >/dev/null || warn "Failed to install one or more Microsoft font packages via yay."
+    else
+        warn "yay is not available; skipping Microsoft font package installation on Arch."
+    fi
 elif FEDORA; then
     warn "Microsoft core fonts package is not configured by default on Fedora; skipping."
 fi
