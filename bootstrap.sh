@@ -822,13 +822,18 @@ if ! which node &>/dev/null; then
     if confirm "Install Node.js"; then
         info "Installing Node.js via nvm..."
         export NVM_DIR="$HOME/.nvm"
-        if [ ! -d "$NVM_DIR" ]; then
+        mkdir -p "$NVM_DIR"
+        if ! command -v nvm &>/dev/null; then
             NVM_VERSION=$(curl -s "https://api.github.com/repos/nvm-sh/nvm/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
             curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh" | bash
         fi
         [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-        nvm install --lts
-        nvm alias default 'lts/*'
+        if command -v nvm &>/dev/null; then
+            nvm install --lts
+            nvm alias default 'lts/*'
+        else
+            warn "nvm is not available after installation attempt; skipping Node.js setup."
+        fi
     fi
 fi
 
@@ -851,7 +856,7 @@ fi
 if DEBIAN; then
     execute_sudo "apt-get" "install" "-y" "ttf-mscorefonts-installer"
 elif ARCHLINUX; then
-    $INSTALL ttf-ms-fonts >/dev/null
+    $INSTALL ttf-ms-win11 >/dev/null
 elif FEDORA; then
     warn "Microsoft core fonts package is not configured by default on Fedora; skipping."
 fi
