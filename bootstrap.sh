@@ -618,15 +618,13 @@ fi
 
 if ! which lazygit &>/dev/null; then
     info "Installing lazygit..."
-    if DEBIAN; then
+    if DEBIAN || FEDORA; then
         # Lazygit
         LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | \grep -Po '"tag_name": *"v\K[^"]*')
         curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
         tar xf lazygit.tar.gz lazygit
         install lazygit -D -t $HOME/.local/bin/
     elif ARCHLINUX; then
-        $INSTALL lazygit >/dev/null
-    elif FEDORA; then
         $INSTALL lazygit >/dev/null
     elif MACOS; then
         $INSTALL lazygit >/dev/null
