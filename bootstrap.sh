@@ -854,7 +854,7 @@ fi
 if $NODE_INSTALLED; then
     if ! which yarn &>/dev/null; then
         info "Installing Yarn..."
-        execute_sudo "npm install --global yarn >/dev/null"
+        npm install --global yarn >/dev/null || warn "Failed to install Yarn globally without sudo. Check npm prefix permissions."
     fi
 fi
 
