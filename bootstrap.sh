@@ -139,6 +139,7 @@ USER=$(whoami)
 
 IS_MACOS=false
 IS_DEBIAN=false
+IS_ARCHLINUX=false
 IS_INTERACTIVE=false
 IS_WSL=false
 
@@ -158,6 +159,14 @@ function MACOS() {
 
 function DEBIAN() {
     if [[ "$IS_DEBIAN" == true ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function ARCHLINUX() {
+    if [[ "$IS_ARCHLINUX" == true ]]; then
         return 0
     else
         return 1
@@ -196,8 +205,18 @@ if [[ "$PLATFORM" == "Linux" ]]; then
         $UPGRADE
         $INSTALL git git-lfs -y &>/dev/null
         ADMIN=root
+    elif [[ -f /etc/arch-release ]]; then
+        echo "Detected Arch Linux system"
+        IS_ARCHLINUX=true
+        UPDATE="execute_sudo pacman -Sy --noconfirm"
+        UPGRADE="execute_sudo pacman -Syu --noconfirm"
+        INSTALL="execute_sudo pacman -S --noconfirm --needed"
+        $UPDATE
+        $UPGRADE
+        $INSTALL git git-lfs >/dev/null
+        ADMIN=root
     else
-        abort "This script is intended for Debian-based systems only."
+        abort "This script is intended for Debian-based or Arch Linux systems only."
     fi
 elif [[ "$PLATFORM" == "Darwin" ]]; then
     echo "Detected macOS platform"
@@ -224,7 +243,7 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
     INSTALL="brew install"
     ADMIN=admin
 else
-    abort "This script is intended for Debian Linux and macOS platforms only."
+    abort "This script is intended for Debian Linux, Arch Linux, and macOS platforms only."
 fi
 
 echo ""
@@ -269,16 +288,22 @@ if MACOS; then
     $INSTALL pkg-config libusb gfortran pv
 elif DEBIAN; then
     $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran cifs-utils >/dev/null
+elif ARCHLINUX; then
+    $INSTALL base-devel pkgconf libusb clang gfortran cifs-utils wget python-pip >/dev/null
 fi
 
-if DEBIAN; then
+if DEBIAN || ARCHLINUX; then
     if ! which rsync &>/dev/null; then
         info "Installing rsync..."
         $INSTALL rsync >/dev/null
     fi
     if ! which zsh &>/dev/null; then
         info "zsh not found, installing zsh..."
-        execute_sudo apt-get install zsh -y >/dev/null
+        if DEBIAN; then
+            execute_sudo apt-get install zsh -y >/dev/null
+        else
+            $INSTALL zsh >/dev/null
+        fi
         ohai "Enable zsh as default shell?"
         if confirm; then
             chsh -s "$(which zsh)" "$USER"
@@ -295,29 +320,33 @@ mkdir -p ~/.local/bin >/dev/null
 info "Set path to include local dir..."
 export PATH="$HOME/.local/bin:/usr/local/bin:$PATH" >/dev/null
 
-confirm "Is this an interactive system?" && IS_INTERACTIVE=true
+confirm "Is this an interactive system" && IS_INTERACTIVE=true
 
-if DEBIAN ; then
+if DEBIAN || ARCHLINUX ; then
     if INTERACTIVE; then
         if ! which kitty &>/dev/null && ! WSL; then
-            curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
-            # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
-            # your system-wide PATH)
-            ln -sf ~/.local/kitty.app/bin/kitty ~/.local/kitty.app/bin/kitten ~/.local/bin/
-            # Place the kitty.desktop file somewhere it can be found by the OS
-            cp ~/.local/kitty.app/share/applications/kitty.desktop ~/.local/share/applications/
-            # If you want to open text files and images in kitty via your file manager also add the kitty-open.desktop file
-            cp ~/.local/kitty.app/share/applications/kitty-open.desktop ~/.local/share/applications/
-            # Update the paths to the kitty and its icon in the kitty desktop file(s)
-            sed -i "s|Icon=kitty|Icon=$(readlink -f ~)/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" ~/.local/share/applications/kitty*.desktop
-            sed -i "s|Exec=kitty|Exec=$(readlink -f ~)/.local/kitty.app/bin/kitty|g" ~/.local/share/applications/kitty*.desktop
-            # Make xdg-terminal-exec (and hence desktop environments that support it use kitty)
-            echo 'kitty.desktop' >~/.config/xdg-terminals.list
-            echo "Setting kitty as default terminal..."
-            update-my-alternatives --install ~/.local/bin/x-terminal-emulator x-terminal-emulator ~/.local/bin/kitty 50
-            # Set as default terminal in gnome settings if gsettings is available
-            if ! which gsettings &>/dev/null; then
-                gsettings set org.gnome.desktop.default-applications.terminal exec "$(readlink -f ~)/.local/bin/kitty"
+            if ARCHLINUX; then
+                $INSTALL kitty >/dev/null
+            else
+                curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
+                # Create symbolic links to add kitty and kitten to PATH (assuming ~/.local/bin is in
+                # your system-wide PATH)
+                ln -sf ~/.local/kitty.app/bin/kitty ~/.local/kitty.app/bin/kitten ~/.local/bin/
+                # Place the kitty.desktop file somewhere it can be found by the OS
+                cp ~/.local/kitty.app/share/applications/kitty.desktop ~/.local/share/applications/
+                # If you want to open text files and images in kitty via your file manager also add the kitty-open.desktop file
+                cp ~/.local/kitty.app/share/applications/kitty-open.desktop ~/.local/share/applications/
+                # Update the paths to the kitty and its icon in the kitty desktop file(s)
+                sed -i "s|Icon=kitty|Icon=$(readlink -f ~)/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" ~/.local/share/applications/kitty*.desktop
+                sed -i "s|Exec=kitty|Exec=$(readlink -f ~)/.local/kitty.app/bin/kitty|g" ~/.local/share/applications/kitty*.desktop
+                # Make xdg-terminal-exec (and hence desktop environments that support it use kitty)
+                echo 'kitty.desktop' >~/.config/xdg-terminals.list
+                echo "Setting kitty as default terminal..."
+                update-my-alternatives --install ~/.local/bin/x-terminal-emulator x-terminal-emulator ~/.local/bin/kitty 50
+                # Set as default terminal in gnome settings if gsettings is available
+                if ! which gsettings &>/dev/null; then
+                    gsettings set org.gnome.desktop.default-applications.terminal exec "$(readlink -f ~)/.local/bin/kitty"
+                fi
             fi
         fi
     fi
@@ -399,12 +428,20 @@ elif MACOS; then
     else
         info "fd is already installed"
     fi
+elif ARCHLINUX; then
+    if ! which fd &>/dev/null; then
+        $INSTALL fd >/dev/null
+    else
+        info "fd is already installed"
+    fi
 fi
 
 if DEBIAN; then
     $INSTALL openssh-server openssh-client >/dev/null
     $INSTALL libssl-dev >/dev/null
     $INSTALL unzip >/dev/null
+elif ARCHLINUX; then
+    $INSTALL openssh openssl unzip >/dev/null
 elif MACOS; then
     $INSTALL openssl >/dev/null
     $INSTALL nano >/dev/null
@@ -444,14 +481,14 @@ if INTERACTIVE || WSL; then
                 warn "powershell.exe not found, skipping Windows font install from WSL."
                 break
             fi
-        elif DEBIAN; then
+        elif DEBIAN || ARCHLINUX; then
             sudo cp "$font_file" /usr/share/fonts/truetype/
         elif MACOS; then
             cp "$font_file" $HOME/Library/Fonts/
         fi
     done
 
-    if DEBIAN && ! WSL; then
+    if (DEBIAN || ARCHLINUX) && ! WSL; then
         info "Updating font cache..."
         sudo fc-cache -f -v >/dev/null
     fi
@@ -465,7 +502,7 @@ fi
 PODMAN_INSTALLED=false
 if ! which podman &>/dev/null; then
     if confirm "Install podman"; then
-        if DEBIAN && ! WSL; then
+        if (DEBIAN || ARCHLINUX) && ! WSL; then
             $INSTALL podman
             PODMAN_INSTALLED=true
         elif MACOS; then
@@ -519,6 +556,8 @@ if ! which lazygit &>/dev/null; then
         curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
         tar xf lazygit.tar.gz lazygit
         install lazygit -D -t $HOME/.local/bin/
+    elif ARCHLINUX; then
+        $INSTALL lazygit >/dev/null
     elif MACOS; then
         $INSTALL lazygit >/dev/null
     fi
@@ -531,6 +570,8 @@ if ! which nvim &>/dev/null; then
         curl -Lo neovim.tar.gz "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux-x86_64.tar.gz"
         tar xf neovim.tar.gz
         execute_sudo "cp" "-r" "nvim-linux-x86_64/." "/usr/local"
+    elif ARCHLINUX; then
+        $INSTALL neovim >/dev/null
     elif MACOS; then
         $INSTALL neovim >/dev/null
     fi
@@ -541,6 +582,8 @@ if ! which termdown &>/dev/null; then
     info "Installing termdown..."
     if DEBIAN; then
         /usr/bin/python3 -m pip install --break-system-packages termdown
+    elif ARCHLINUX; then
+        /usr/bin/python3 -m pip install --user termdown
     elif MACOS; then
         $INSTALL countdown >/dev/null
     fi
@@ -631,7 +674,7 @@ if [ $? -ne 0 ]; then
     warn "Failed to extract dotfiles, trying to copy manually..."
 fi
 
-if DEBIAN; then
+if DEBIAN || ARCHLINUX; then
     # set LD_LIBRARY_PATH in .zshrc
     sed -i '/#LD_LIBRARY_PATH/c\export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH' $HOME/.zshrc
 elif MACOS; then
@@ -650,7 +693,7 @@ fi
 
 if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
     info "Installing python..."
-    if DEBIAN; then
+    if DEBIAN || ARCHLINUX; then
         MINICONDA_INSTALLER=Miniconda3-latest-Linux-$ARCH.sh
     elif MACOS; then
         MINICONDA_INSTALLER=Miniconda3-latest-MacOSX-$ARCH.sh
@@ -698,6 +741,8 @@ elif INTERACTIVE; then
             sudo apt-get update >/dev/null
             sudo apt-get install -y code >/dev/null
             sudo apt-get -f install -y >/dev/null
+        elif ARCHLINUX; then
+            $INSTALL code >/dev/null
         elif MACOS; then
             brew install --cask visual-studio-code >/dev/null
             ln -s /Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code ~/.local/bin/code
@@ -712,7 +757,7 @@ fi
 
 if ! which node &>/dev/null; then
     if confirm "Install Node.js"; then
-        if DEBIAN; then
+        if DEBIAN || ARCHLINUX; then
             $INSTALL nodejs >/dev/null
             if ! which npm &>/dev/null; then
                 info "Installing npm..."
@@ -739,11 +784,16 @@ fi
 
 if DEBIAN; then
     execute_sudo "apt-get" "install" "-y" "ttf-mscorefonts-installer"
+elif ARCHLINUX; then
+    $INSTALL ttf-ms-fonts >/dev/null
 fi
 
 if DEBIAN; then
     info "Cleaning up apt cache..."
     execute_sudo apt-get autoremove -y
+elif ARCHLINUX; then
+    info "Cleaning up pacman cache..."
+    execute_sudo pacman -Sc --noconfirm >/dev/null
 elif MACOS; then
     info "Cleaning up Homebrew cache..."
     brew cleanup --prune all &>/dev/null
