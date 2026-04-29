@@ -756,6 +756,13 @@ fi
 if DEBIAN || ARCHLINUX || FEDORA; then
     # set LD_LIBRARY_PATH in .zshrc
     sed -i '/#LD_LIBRARY_PATH/c\export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH' $HOME/.zshrc
+    if ARCHLINUX; then
+        # VS Code on Arch uses "Code - OSS" instead of "Code"
+        mkdir -p "$HOME/.config/Code - OSS/User"
+        if [ -f "$HOME/.config/Code/User/settings.json" ]; then
+            cp "$HOME/.config/Code/User/settings.json" "$HOME/.config/Code - OSS/User/settings.json"
+        fi
+    fi
 elif MACOS; then
     mkdir -p $HOME/Library/Application\ Support/Code/User
     cp $HOME/.config/Code/User/settings.json $HOME/Library/Application\ Support/Code/User/
