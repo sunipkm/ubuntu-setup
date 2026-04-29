@@ -140,6 +140,7 @@ USER=$(whoami)
 IS_MACOS=false
 IS_DEBIAN=false
 IS_ARCHLINUX=false
+IS_FEDORA=false
 IS_INTERACTIVE=false
 IS_WSL=false
 
@@ -167,6 +168,14 @@ function DEBIAN() {
 
 function ARCHLINUX() {
     if [[ "$IS_ARCHLINUX" == true ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function FEDORA() {
+    if [[ "$IS_FEDORA" == true ]]; then
         return 0
     else
         return 1
@@ -215,8 +224,18 @@ if [[ "$PLATFORM" == "Linux" ]]; then
         $UPGRADE
         $INSTALL git git-lfs >/dev/null
         ADMIN=root
+    elif [[ -f /etc/fedora-release ]]; then
+        echo "Detected Fedora system"
+        IS_FEDORA=true
+        UPDATE="execute_sudo dnf makecache -y"
+        UPGRADE="execute_sudo dnf upgrade -y"
+        INSTALL="execute_sudo dnf install -y"
+        $UPDATE
+        $UPGRADE
+        $INSTALL git git-lfs >/dev/null
+        ADMIN=root
     else
-        abort "This script is intended for Debian-based or Arch Linux systems only."
+        abort "This script is intended for Debian-based, Arch Linux, or Fedora systems only."
     fi
 elif [[ "$PLATFORM" == "Darwin" ]]; then
     echo "Detected macOS platform"
@@ -243,7 +262,7 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
     INSTALL="brew install"
     ADMIN=admin
 else
-    abort "This script is intended for Debian Linux, Arch Linux, and macOS platforms only."
+    abort "This script is intended for Debian Linux, Arch Linux, Fedora, and macOS platforms only."
 fi
 
 echo ""
@@ -290,9 +309,11 @@ elif DEBIAN; then
     $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran cifs-utils >/dev/null
 elif ARCHLINUX; then
     $INSTALL base-devel pkgconf libusb clang gfortran cifs-utils wget python-pip >/dev/null
+elif FEDORA; then
+    $INSTALL gcc gcc-c++ make pkgconf-pkg-config libusbx-devel clang gfortran cifs-utils wget python3-pip >/dev/null
 fi
 
-if DEBIAN || ARCHLINUX; then
+if DEBIAN || ARCHLINUX || FEDORA; then
     if ! which rsync &>/dev/null; then
         info "Installing rsync..."
         $INSTALL rsync >/dev/null
@@ -322,10 +343,10 @@ export PATH="$HOME/.local/bin:/usr/local/bin:$PATH" >/dev/null
 
 confirm "Is this an interactive system" && IS_INTERACTIVE=true
 
-if DEBIAN || ARCHLINUX ; then
+if DEBIAN || ARCHLINUX || FEDORA ; then
     if INTERACTIVE; then
         if ! which kitty &>/dev/null && ! WSL; then
-            if ARCHLINUX; then
+            if ARCHLINUX || FEDORA; then
                 $INSTALL kitty >/dev/null
             else
                 curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
@@ -434,6 +455,12 @@ elif ARCHLINUX; then
     else
         info "fd is already installed"
     fi
+elif FEDORA; then
+    if ! which fd &>/dev/null; then
+        $INSTALL fd-find >/dev/null
+    else
+        info "fd is already installed"
+    fi
 fi
 
 if DEBIAN; then
@@ -442,6 +469,8 @@ if DEBIAN; then
     $INSTALL unzip >/dev/null
 elif ARCHLINUX; then
     $INSTALL openssh openssl unzip >/dev/null
+elif FEDORA; then
+    $INSTALL openssh-server openssh-clients openssl-devel unzip >/dev/null
 elif MACOS; then
     $INSTALL openssl >/dev/null
     $INSTALL nano >/dev/null
@@ -481,14 +510,14 @@ if INTERACTIVE || WSL; then
                 warn "powershell.exe not found, skipping Windows font install from WSL."
                 break
             fi
-        elif DEBIAN || ARCHLINUX; then
+        elif DEBIAN || ARCHLINUX || FEDORA; then
             sudo cp "$font_file" /usr/share/fonts/truetype/
         elif MACOS; then
             cp "$font_file" $HOME/Library/Fonts/
         fi
     done
 
-    if (DEBIAN || ARCHLINUX) && ! WSL; then
+    if (DEBIAN || ARCHLINUX || FEDORA) && ! WSL; then
         info "Updating font cache..."
         sudo fc-cache -f -v >/dev/null
     fi
@@ -502,7 +531,7 @@ fi
 PODMAN_INSTALLED=false
 if ! which podman &>/dev/null; then
     if confirm "Install podman"; then
-        if (DEBIAN || ARCHLINUX) && ! WSL; then
+        if (DEBIAN || ARCHLINUX || FEDORA) && ! WSL; then
             $INSTALL podman
             PODMAN_INSTALLED=true
         elif MACOS; then
@@ -558,6 +587,8 @@ if ! which lazygit &>/dev/null; then
         install lazygit -D -t $HOME/.local/bin/
     elif ARCHLINUX; then
         $INSTALL lazygit >/dev/null
+    elif FEDORA; then
+        $INSTALL lazygit >/dev/null
     elif MACOS; then
         $INSTALL lazygit >/dev/null
     fi
@@ -572,6 +603,8 @@ if ! which nvim &>/dev/null; then
         execute_sudo "cp" "-r" "nvim-linux-x86_64/." "/usr/local"
     elif ARCHLINUX; then
         $INSTALL neovim >/dev/null
+    elif FEDORA; then
+        $INSTALL neovim >/dev/null
     elif MACOS; then
         $INSTALL neovim >/dev/null
     fi
@@ -583,6 +616,8 @@ if ! which termdown &>/dev/null; then
     if DEBIAN; then
         /usr/bin/python3 -m pip install --break-system-packages termdown
     elif ARCHLINUX; then
+        /usr/bin/python3 -m pip install --user termdown
+    elif FEDORA; then
         /usr/bin/python3 -m pip install --user termdown
     elif MACOS; then
         $INSTALL countdown >/dev/null
@@ -674,7 +709,7 @@ if [ $? -ne 0 ]; then
     warn "Failed to extract dotfiles, trying to copy manually..."
 fi
 
-if DEBIAN || ARCHLINUX; then
+if DEBIAN || ARCHLINUX || FEDORA; then
     # set LD_LIBRARY_PATH in .zshrc
     sed -i '/#LD_LIBRARY_PATH/c\export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH' $HOME/.zshrc
 elif MACOS; then
@@ -691,9 +726,19 @@ elif MACOS; then
     echo 'include $HOMEBREW_CELLAR/nano/*/share/nano/*.nanorc' >>$HOME/.nanorc
 fi
 
+if ! grep -q "### NVM INIT ###" "$HOME/.zshrc"; then
+    cat <<'EOF' >>"$HOME/.zshrc"
+### NVM INIT ###
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
+### END NVM INIT ###
+EOF
+fi
+
 if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
     info "Installing python..."
-    if DEBIAN || ARCHLINUX; then
+    if DEBIAN || ARCHLINUX || FEDORA; then
         MINICONDA_INSTALLER=Miniconda3-latest-Linux-$ARCH.sh
     elif MACOS; then
         MINICONDA_INSTALLER=Miniconda3-latest-MacOSX-$ARCH.sh
@@ -743,6 +788,11 @@ elif INTERACTIVE; then
             sudo apt-get -f install -y >/dev/null
         elif ARCHLINUX; then
             $INSTALL code >/dev/null
+        elif FEDORA; then
+            execute_sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+            echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | execute_sudo tee /etc/yum.repos.d/vscode.repo >/dev/null
+            execute_sudo dnf check-update >/dev/null || true
+            $INSTALL code >/dev/null || warn "Could not install code from configured Fedora repositories."
         elif MACOS; then
             brew install --cask visual-studio-code >/dev/null
             ln -s /Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code ~/.local/bin/code
@@ -757,19 +807,22 @@ fi
 
 if ! which node &>/dev/null; then
     if confirm "Install Node.js"; then
-        if DEBIAN || ARCHLINUX; then
-            $INSTALL nodejs >/dev/null
-            if ! which npm &>/dev/null; then
-                info "Installing npm..."
-                $INSTALL npm >/dev/null
-            fi
-        elif MACOS; then
-            $INSTALL node >/dev/null
+        info "Installing Node.js via nvm..."
+        export NVM_DIR="$HOME/.nvm"
+        if [ ! -d "$NVM_DIR" ]; then
+            NVM_VERSION=$(curl -s "https://api.github.com/repos/nvm-sh/nvm/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
+            curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/v${NVM_VERSION}/install.sh" | bash
         fi
+        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+        nvm install --lts
+        nvm alias default 'lts/*'
     fi
 fi
 
-if ! which npm &>/dev/null; then
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+if ! command -v node &>/dev/null || ! command -v npm &>/dev/null || ! command -v npx &>/dev/null; then
     NODE_INSTALLED=false
 else
     NODE_INSTALLED=true
@@ -786,6 +839,8 @@ if DEBIAN; then
     execute_sudo "apt-get" "install" "-y" "ttf-mscorefonts-installer"
 elif ARCHLINUX; then
     $INSTALL ttf-ms-fonts >/dev/null
+elif FEDORA; then
+    warn "Microsoft core fonts package is not configured by default on Fedora; skipping."
 fi
 
 if DEBIAN; then
@@ -794,6 +849,10 @@ if DEBIAN; then
 elif ARCHLINUX; then
     info "Cleaning up pacman cache..."
     execute_sudo pacman -Sc --noconfirm >/dev/null
+elif FEDORA; then
+    info "Cleaning up dnf cache..."
+    execute_sudo dnf autoremove -y >/dev/null
+    execute_sudo dnf clean all >/dev/null
 elif MACOS; then
     info "Cleaning up Homebrew cache..."
     brew cleanup --prune all &>/dev/null
