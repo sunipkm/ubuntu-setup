@@ -639,8 +639,13 @@ fi
 
 if ! which typst &>/dev/null; then
     if [ "$RUST_INSTALLED" = true ]; then
-        confirm "Install Typst" && cargo install --locked typst-cli
-        execute_sudo ln -s "$HOME/.cargo/bin/typst" /usr/local/bin/
+        if confirm "Install Typst"; then
+            cargo install --locked typst-cli
+            if [ -e "/usr/local/bin/typst" ] || [ -L "/usr/local/bin/typst" ]; then
+                execute_sudo rm -f /usr/local/bin/typst
+            fi
+            execute_sudo ln -s "$HOME/.cargo/bin/typst" /usr/local/bin/typst
+        fi
     else
         warn "Typst requires Rust, install the Rust toolchain, then run 'cargo install --locked typst-cli' to install Typst."
     fi
