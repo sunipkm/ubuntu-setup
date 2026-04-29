@@ -322,7 +322,7 @@ if DEBIAN ; then
         fi
     fi
 elif MACOS; then
-    if [ ! -f "/Applications/kitty.app" ]; then
+    if INTERACTIVE && [ ! -f "/Applications/kitty.app" ]; then
         curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
     fi
 fi
@@ -417,32 +417,44 @@ if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
 fi
 
 # Fonts
-cd $WORK_DIR
-info "Installing fonts..."
-NERDFONT_VERSION=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
-echo "Installing nerd fonts..."
-rm -vf *.ttf # delete all font files in there
-echo "Downloading Cascadia Code..."
-curl -Lo CascadiaCode.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/CascadiaCode.tar.xz"
-tar xf CascadiaCode.tar.xz
-echo "Downloading Meslo..."
-curl -Lo Meslo.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/Meslo.tar.xz"
-tar xf Meslo.tar.xz
-if DEBIAN; then
-    curl -Lo "aptos.zip" "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip"
-    unzip -o aptos.zip -d aptos >/dev/null
-fi
-for font_file in $WORK_DIR/*.ttf; do
+if INTERACTIVE || WSL; then
+    cd $WORK_DIR
+    info "Installing fonts..."
+    NERDFONT_VERSION=$(curl -s "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
+    echo "Installing nerd fonts..."
+    rm -vf *.ttf # delete all font files in there
+    echo "Downloading Cascadia Code..."
+    curl -Lo CascadiaCode.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/CascadiaCode.tar.xz"
+    tar xf CascadiaCode.tar.xz
+    echo "Downloading Meslo..."
+    curl -Lo Meslo.tar.xz "https://github.com/ryanoasis/nerd-fonts/releases/download/v${NERDFONT_VERSION}/Meslo.tar.xz"
+    tar xf Meslo.tar.xz
     if DEBIAN; then
-        sudo cp "$font_file" /usr/share/fonts/truetype/
-    elif MACOS; then
-        cp "$font_file" $HOME/Library/Fonts/
+        curl -Lo "aptos.zip" "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip"
+        unzip -o aptos.zip -d aptos >/dev/null
     fi
-done
+    for font_file in $WORK_DIR/*.ttf; do
+        if WSL; then
+            if command -v powershell.exe &>/dev/null; then
+                font_base=$(basename "$font_file")
+                win_font_file=$(wslpath -w "$font_file")
+                powershell.exe -NoProfile -Command "[void](New-Item -ItemType Directory -Force -Path (Join-Path \$env:LOCALAPPDATA 'Microsoft\\Windows\\Fonts')); Copy-Item -LiteralPath '$win_font_file' -Destination (Join-Path \$env:LOCALAPPDATA 'Microsoft\\Windows\\Fonts\\$font_base') -Force" >/dev/null
+                powershell.exe -NoProfile -Command "New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts' -Name '$font_base (TrueType)' -Value (Join-Path \$env:LOCALAPPDATA 'Microsoft\\Windows\\Fonts\\$font_base') -PropertyType String -Force | Out-Null" >/dev/null
+            else
+                warn "powershell.exe not found, skipping Windows font install from WSL."
+                break
+            fi
+        elif DEBIAN; then
+            sudo cp "$font_file" /usr/share/fonts/truetype/
+        elif MACOS; then
+            cp "$font_file" $HOME/Library/Fonts/
+        fi
+    done
 
-if DEBIAN; then
-    info "Updating font cache..."
-    sudo fc-cache -f -v >/dev/null
+    if DEBIAN && ! WSL; then
+        info "Updating font cache..."
+        sudo fc-cache -f -v >/dev/null
+    fi
 fi
 
 if ! which starship &>/dev/null; then
@@ -450,21 +462,20 @@ if ! which starship &>/dev/null; then
     curl -sSf https://starship.rs/install.sh | sh -s -- -y -b $HOME/.local/bin
 fi
 
-if ! which docker &>/dev/null; then
-    if confirm "Install docker engine"; then
+PODMAN_INSTALLED=false
+if ! which podman &>/dev/null; then
+    if confirm "Install podman"; then
         if DEBIAN && ! WSL; then
-            curl -fsSL https://get.docker.com -o get-docker.sh
-            execute_sudo sh get-docker.sh
-            execute_sudo usermod -aG docker "$USER"
-            DOCKER_INSTALLED=true
-            elif MACOS; then
-            brew install --cask docker
-            DOCKER_INSTALLED=true
+            $INSTALL podman
+            PODMAN_INSTALLED=true
+        elif MACOS; then
+            $INSTALL podman
+            PODMAN_INSTALLED=true
         fi
     fi
 else
-    info "Docker is already installed"
-    DOCKER_INSTALLED=true
+    info "Podman is already installed"
+    PODMAN_INSTALLED=true
 fi
 
 if ! [ -f "$HOME/.cargo/env" ]; then
@@ -488,7 +499,7 @@ if $RUST_INSTALLED; then
     cargo install cargo-clean-all
 fi
 
-if $RUST_INSTALLED && $DOCKER_INSTALLED; then
+if $RUST_INSTALLED && $PODMAN_INSTALLED; then
     if ! which cross &>/dev/null; then
         if confirm "Install cross (cross-compilation tool)"; then
             info "Installing cross..."
@@ -657,10 +668,28 @@ fi
 pip install numpy matplotlib xarray dask netcdf4 astropy scipy scikit-image natsort fortls ipykernel jupyter
 pip install skmpython@git+https://github.com/sunipkm/skmpython
 
-if INTERACTIVE; then
+if WSL; then
+    if command -v powershell.exe &>/dev/null; then
+        info "Installing Visual Studio Code on Windows..."
+        powershell.exe -NoProfile -Command "\$codeCmd = Join-Path \$env:LOCALAPPDATA 'Programs\\Microsoft VS Code\\bin\\code.cmd'; if (-not (Test-Path \$codeCmd)) { if (Get-Command winget -ErrorAction SilentlyContinue) { winget install -e --id Microsoft.VisualStudioCode --accept-package-agreements --accept-source-agreements } else { Write-Host 'winget not found, skipping VS Code install.' } }" >/dev/null
+        win_settings_source="$HOME/.config/Code/User/settings.json"
+        if [ -f "$win_settings_source" ]; then
+            win_settings_source_win=$(wslpath -w "$win_settings_source")
+            powershell.exe -NoProfile -Command "\$dstDir = Join-Path \$env:APPDATA 'Code\\User'; New-Item -ItemType Directory -Force -Path \$dstDir | Out-Null; Copy-Item -LiteralPath '$win_settings_source_win' -Destination (Join-Path \$dstDir 'settings.json') -Force" >/dev/null
+        else
+            warn "Could not find $HOME/.config/Code/User/settings.json; skipping Windows VS Code settings copy."
+        fi
+        info "Installing VS Code extensions on Windows..."
+        while read -r line; do
+            powershell.exe -NoProfile -Command "\$codeCmd = Join-Path \$env:LOCALAPPDATA 'Programs\\Microsoft VS Code\\bin\\code.cmd'; if (Test-Path \$codeCmd) { & \$codeCmd --install-extension '$line' } elseif (Get-Command code -ErrorAction SilentlyContinue) { code --install-extension '$line' } else { Write-Host 'VS Code CLI not found on Windows, skipping extension install.' }" >/dev/null
+        done < <(printf '%s\n' "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/extensions.txt)")
+    else
+        warn "powershell.exe not found, skipping Windows VS Code install from WSL."
+    fi
+elif INTERACTIVE; then
     if ! which code &>/dev/null; then
         info "Installing Visual Studio Code..."
-        if DEBIAN && ! WSL; then
+        if DEBIAN; then
             sudo apt-get install -y wget gpg >/dev/null
             wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor >packages.microsoft.gpg
             sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
@@ -674,7 +703,6 @@ if INTERACTIVE; then
             ln -s /Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code ~/.local/bin/code
         fi
     fi
-
 
     info "Installing VS Code extensions..."
     while read -r line; do
