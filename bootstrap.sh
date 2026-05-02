@@ -808,7 +808,7 @@ pip install skmpython@git+https://github.com/sunipkm/skmpython
 if WSL; then
     if command -v powershell.exe &>/dev/null; then
         info "Installing Visual Studio Code on Windows..."
-        powershell.exe -NoProfile -Command "\$codeCmd = Join-Path \$env:LOCALAPPDATA 'Programs\\Microsoft VS Code\\bin\\code.cmd'; if (-not (Test-Path \$codeCmd)) { if (Get-Command winget -ErrorAction SilentlyContinue) { winget install -e --id Microsoft.VisualStudioCode --accept-package-agreements --accept-source-agreements } else { Write-Host 'winget not found, skipping VS Code install.' } }" >/dev/null
+        powershell.exe -NoProfile -Command "\$codeCmd = Join-Path \$env:LOCALAPPDATA 'Programs\\Microsoft VS Code\\bin\\code.cmd'; if (-not (Test-Path \$codeCmd)) { if (Get-Command winget -ErrorAction SilentlyContinue) { winget install -e --id Microsoft.VisualStudioCode --accept-package-agreements --accept-source-agreements --override \"/mergetasks=!runcode,addcontextmenufiles,addcontextmenufolders,addtopath\" } else { Write-Host 'winget not found, skipping VS Code install.' } }" >/dev/null
         win_settings_source="$HOME/.config/Code/User/settings.json"
         if [ -f "$win_settings_source" ]; then
             win_settings_source_win=$(wslpath -w "$win_settings_source")
