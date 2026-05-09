@@ -251,7 +251,22 @@ eval "$(zoxide init zsh)"
 # export GOBIN=$GOPATH/bin
 # export PATH=$PATH:$GOBIN
 
-source ~/.miniconda3/bin/activate
+# Activate Python environment: prefer .venv in current dir, then repo root, then uv/miniconda
+if [[ -f "$PWD/.venv/bin/activate" ]]; then
+    source "$PWD/.venv/bin/activate"
+else
+    _git_top=$(git rev-parse --show-superproject-working-tree --show-toplevel 2>/dev/null | head -1)
+    if [[ -n "$_git_top" && -f "$_git_top/.venv/bin/activate" ]]; then
+        source "$_git_top/.venv/bin/activate"
+    elif [[ -d "$HOME/.uvpython3" ]]; then
+        _uv_bins=("$HOME"/.uvpython3/*/bin)
+        [[ -d "${_uv_bins[1]}" ]] && export PATH="${_uv_bins[1]}:$PATH"
+        unset _uv_bins
+    else
+        source "$HOME/.miniconda3/bin/activate"
+    fi
+    unset _git_top
+fi
 
 #LD_LIBRARY_PATH
 

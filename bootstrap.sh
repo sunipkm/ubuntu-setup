@@ -785,25 +785,48 @@ export NVM_DIR="$HOME/.nvm"
 EOF
 fi
 
-if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
-    info "Installing python..."
-    if DEBIAN || ARCHLINUX || FEDORA; then
-        MINICONDA_INSTALLER=Miniconda3-latest-Linux-$ARCH.sh
-    elif MACOS; then
-        MINICONDA_INSTALLER=Miniconda3-latest-MacOSX-$ARCH.sh
+USE_UV=false
+confirm "[EXPERIMENTAL] Use uv instead of Miniconda for Python" && USE_UV=true
+
+if $USE_UV; then
+    if ! command -v uv &>/dev/null; then
+        info "Installing uv..."
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+    else
+        info "uv is already installed"
     fi
-    wget https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER
-    chmod +x $MINICONDA_INSTALLER
-    ./$MINICONDA_INSTALLER -b -u -p $HOME/.miniconda3
-    source $HOME/.miniconda3/bin/activate
-    conda config --set changeps1 false
+    if ! UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.uvpython3" uv python find 3.13 2>/dev/null); then
+        info "Installing Python 3.13 via uv..."
+        uv python install 3.13 --install-dir "$HOME/.uvpython3" --default
+        UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.uvpython3" uv python find 3.13)
+    else
+        info "Python 3.13 (uv) is already installed at $UV_PYTHON"
+    fi
+    export PATH="$(dirname "$UV_PYTHON"):$PATH"
+    PIP_INSTALL="uv pip install --python $UV_PYTHON --system"
 else
-    source $HOME/.miniconda3/bin/activate
+    if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
+        info "Installing python..."
+        if DEBIAN || ARCHLINUX || FEDORA; then
+            MINICONDA_INSTALLER=Miniconda3-latest-Linux-$ARCH.sh
+        elif MACOS; then
+            MINICONDA_INSTALLER=Miniconda3-latest-MacOSX-$ARCH.sh
+        fi
+        wget https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER
+        chmod +x $MINICONDA_INSTALLER
+        ./$MINICONDA_INSTALLER -b -u -p $HOME/.miniconda3
+        source $HOME/.miniconda3/bin/activate
+        conda config --set changeps1 false
+    else
+        source $HOME/.miniconda3/bin/activate
+    fi
+    PIP_INSTALL="pip install"
 fi
 
 # necessary python packages
-pip install numpy matplotlib xarray dask netcdf4 astropy scipy scikit-image natsort fortls ipykernel jupyter
-pip install skmpython@git+https://github.com/sunipkm/skmpython
+$PIP_INSTALL numpy matplotlib xarray dask netcdf4 astropy scipy scikit-image natsort fortls ipykernel jupyter
+$PIP_INSTALL "skmpython@git+https://github.com/sunipkm/skmpython"
 
 if WSL; then
     if command -v powershell.exe &>/dev/null; then
