@@ -212,7 +212,7 @@ if [[ "$PLATFORM" == "Linux" ]]; then
         INSTALL="execute_sudo apt-get install -y"
         $UPDATE
         $UPGRADE
-        $INSTALL git git-lfs -y &>/dev/null
+        $INSTALL git git-lfs gnupg -y &>/dev/null
         ADMIN=root
     elif [[ -f /etc/arch-release ]]; then
         echo "Detected Arch Linux system"
@@ -222,7 +222,7 @@ if [[ "$PLATFORM" == "Linux" ]]; then
         INSTALL="execute_sudo pacman -S --noconfirm --needed"
         $UPDATE
         $UPGRADE
-        $INSTALL git git-lfs >/dev/null
+        $INSTALL git git-lfs gnupg >/dev/null
         ADMIN=root
     elif [[ -f /etc/fedora-release ]]; then
         echo "Detected Fedora system"
@@ -232,7 +232,7 @@ if [[ "$PLATFORM" == "Linux" ]]; then
         INSTALL="execute_sudo dnf install -y"
         $UPDATE
         $UPGRADE
-        $INSTALL git git-lfs >/dev/null
+        $INSTALL git git-lfs gnupg2 >/dev/null
         ADMIN=root
     else
         abort "This script is intended for Debian-based, Arch Linux, or Fedora systems only."
@@ -268,9 +268,41 @@ fi
 echo ""
 echo ""
 
+# Optionally import a GnuPG identity, then use it to pre-fill git config
+GPG_IMPORTED=false
+GPG_NAME=""
+GPG_EMAIL=""
+GPG_FINGERPRINT=""
+ohai "GnuPG identity"
+if confirm "Import a GnuPG identity"; then
+    read -e -p "${tty_bold}Path to exported GPG key file: ${tty_reset}" GPG_KEY_FILE
+    GPG_KEY_FILE="${GPG_KEY_FILE/#\~/$HOME}"
+    if [[ -f "$GPG_KEY_FILE" ]]; then
+        if gpg --import "$GPG_KEY_FILE"; then
+            GPG_FINGERPRINT=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/{print $10; exit}')
+            if [[ -n "$GPG_FINGERPRINT" ]]; then
+                GPG_UID=$(gpg --list-secret-keys --with-colons "$GPG_FINGERPRINT" | awk -F: '/^uid/{print $10; exit}')
+                GPG_NAME=$(echo "$GPG_UID" | sed 's/ <.*//')
+                GPG_EMAIL=$(echo "$GPG_UID" | sed 's/.*<\(.*\)>/\1/')
+                ohai "Imported GPG identity: $GPG_UID"
+                GPG_IMPORTED=true
+            else
+                warn "No secret key found in the imported file."
+            fi
+        else
+            warn "GPG import failed."
+        fi
+    else
+        warn "File not found: $GPG_KEY_FILE"
+    fi
+fi
+
 # Get git email
 if [[ $(git config --global user.email) ]]; then
     info "Git email already set: $(git config --global user.email)"
+elif $GPG_IMPORTED && [[ -n "$GPG_EMAIL" ]]; then
+    info "Using email from GPG identity: $GPG_EMAIL"
+    git config --global user.email "$GPG_EMAIL"
 else
     read -p "${tty_bold}Enter your git email: ${tty_reset}" GITEMAIL
     git config --global user.email "$GITEMAIL"
@@ -278,9 +310,19 @@ fi
 # Get git username
 if [[ $(git config --global user.name) ]]; then
     info "Git username already set: $(git config --global user.name)"
+elif $GPG_IMPORTED && [[ -n "$GPG_NAME" ]]; then
+    info "Using name from GPG identity: $GPG_NAME"
+    git config --global user.name "$GPG_NAME"
 else
     read -p "${tty_bold}Enter your git full name: ${tty_reset}" GITUSER
     git config --global user.name "$GITUSER"
+fi
+
+# Configure git commit signing if a GPG key was successfully imported
+if $GPG_IMPORTED && [[ -n "$GPG_FINGERPRINT" ]]; then
+    git config --global user.signingkey "$GPG_FINGERPRINT"
+    git config --global commit.gpgsign true
+    info "Git configured to sign commits with GPG key $GPG_FINGERPRINT."
 fi
 
 # Set git branch name to master
@@ -304,6 +346,7 @@ info "Some essential packages..."
 
 if MACOS; then
     $INSTALL wget >/dev/null
+    $INSTALL gnupg >/dev/null
     $INSTALL pkg-config libusb gfortran pv
 elif DEBIAN; then
     $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev gfortran cifs-utils >/dev/null
@@ -476,9 +519,36 @@ elif MACOS; then
     $INSTALL nano >/dev/null
 fi
 
-# Generate ssh key
+# SSH key setup
+ohai "SSH keys"
+mkdir -p "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+if confirm "Copy SSH keys from an existing directory"; then
+    read -e -p "${tty_bold}Path to directory containing SSH keys: ${tty_reset}" SSH_SRC_DIR
+    SSH_SRC_DIR="${SSH_SRC_DIR/#\~/$HOME}"
+    if [[ -d "$SSH_SRC_DIR" ]]; then
+        # Copy all key files (private + public), config, and authorized_keys
+        for f in "$SSH_SRC_DIR"/id_* "$SSH_SRC_DIR"/*.pub \
+                  "$SSH_SRC_DIR/config" "$SSH_SRC_DIR/authorized_keys" \
+                  "$SSH_SRC_DIR/known_hosts"; do
+            [[ -f "$f" ]] || continue
+            cp "$f" "$HOME/.ssh/$(basename "$f")"
+            info "Copied $(basename "$f")"
+        done
+        # Fix permissions: private keys 600, everything else 644
+        for f in "$HOME/.ssh"/id_*; do
+            [[ -f "$f" && "$f" != *.pub ]] && chmod 600 "$f"
+        done
+        chmod 644 "$HOME/.ssh"/*.pub "$HOME/.ssh/config" \
+                   "$HOME/.ssh/authorized_keys" "$HOME/.ssh/known_hosts" 2>/dev/null
+        ohai "SSH keys copied from $SSH_SRC_DIR"
+    else
+        warn "Directory not found: $SSH_SRC_DIR — skipping SSH key copy."
+    fi
+fi
+
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
-    info "Generating ssh key with the ed25519 algorithm..."
+    info "Generating SSH key with the ed25519 algorithm..."
     ssh-keygen -t ed25519 -C "$(whoami)@$(hostname)"
 fi
 
