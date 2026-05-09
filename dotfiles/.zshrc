@@ -159,14 +159,33 @@ alias tat="tmux attach -t"
 alias tsf="tmux source-file ~/.tmux.conf"
 alias tk="tmux kill-session -a"
 
-function install_do_cmd {
-  arg="$1"
-  if ! [[ "$arg" =~ ^[!0-9] && "$arg" =~ ^[[:alnum:]]+$ ]]; then
-    mkdir -p ~/Codes/$arg
-    echo "alias do$arg=\"cd ~/Codes/$arg\"" >> ~/.zshrc
-    omz reload
+function install-do-cmd {
+  if [[ -z "$1" || "$1" == "-h" || "$1" == "--help" ]]; then
+    echo "Usage: install-do-cmd <name>"
+    echo "  Creates ~/Codes/<name>/ and installs a 'do<name>' alias that cd's into it."
+    echo "  <name> may contain letters, digits, dashes, and underscores, but must not start with a digit."
+    return 0
   fi
+  # Strip disallowed characters (keep letters, digits, dashes, underscores), then strip leading digits
+  arg="${1//[^a-zA-Z0-9_-]/}"
+  arg="${arg##[0-9]*}"
+  # After stripping leading digits, remove any remaining leading digits
+  while [[ "$arg" =~ ^[0-9] ]]; do
+    arg="${arg#[0-9]}"
+  done
+  if [[ -z "$arg" ]]; then
+    echo "Error: '$1' produces an empty name after sanitization." >&2
+    return 1
+  fi
+  if [[ "$arg" != "$1" ]]; then
+    echo "Note: name sanitized to '$arg'."
+  fi
+  mkdir -p ~/Codes/$arg
+  echo "alias do$arg=\"cd ~/Codes/$arg\"" >> ~/.zshrc
+  omz reload
+  cd ~/Codes/$arg
 }
+alias install_do_cmd="install-do-cmd"
 
 alias update-my-alternatives='update-alternatives --altdir ~/.local/etc/alternatives --admindir ~/.local/var/lib/alternatives'
 
