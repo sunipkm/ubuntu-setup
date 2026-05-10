@@ -64,7 +64,14 @@ trap {
 }
 
 # ── Execution policy ───────────────────────────────────────────────────────────
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
+# Wrap in try/catch: Set-ExecutionPolicy throws a terminating SecurityException
+# in PowerShell 5.1 when Group Policy overrides the requested scope, and
+# -ErrorAction SilentlyContinue does not suppress terminating errors there.
+try {
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction Stop -WarningAction SilentlyContinue
+} catch {
+    Write-Warn "Could not persist execution policy (likely overridden by Group Policy) — continuing."
+}
 
 # ── Script directory ───────────────────────────────────────────────────────────
 $SCRIPT_DIR = if ((Test-Path variable:PSCommandPath) -and $PSCommandPath) { Split-Path -Parent $PSCommandPath } else { $PWD.Path }

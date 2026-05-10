@@ -6,6 +6,7 @@
 #   • ~/.setup.conf            install settings (from configure.sh)
 #   • GPG secret key           exported non-interactively
 #   • SSH keys                 id_*, *.pub, config, authorized_keys, known_hosts
+#   • VS Code extensions       captured via `code --list-extensions`
 #   • Live dotfiles owned by this repo:
 #       ~/.zshrc  ~/.tmux.conf  ~/.p10k.zsh  ~/.nanorc  ~/.fzf_zsh
 #       ~/.config/{kitty,nvim,tmux,lazygit,starship.toml,yazi,…}
@@ -13,7 +14,8 @@
 # Running the generated snapshot script on a fresh machine:
 #   1. Restores GPG key + SSH keys
 #   2. Writes ~/.setup.conf with all previous settings
-#   3. Calls setup.sh → configure.sh (pre-answered via env) → install.sh
+#   3. Installs VS Code extensions (if `code` is on PATH)
+#   4. Calls setup.sh → configure.sh (pre-answered via env) → install.sh
 #
 # Usage:
 #   bash snapshot.sh [OUTPUT_SCRIPT]
@@ -157,8 +159,41 @@ for _dir in "${REPO_CONFIG_DIRS[@]}"; do
     fi
 done
 
+# VS Code settings in non-standard locations
+# Arch (code-oss from official repos) uses "Code - OSS" instead of "Code"
+if [[ -d "$HOME/.config/Code - OSS" ]]; then
+    mkdir -p "$DOTS_STAGE/.config/Code - OSS"
+    cp -r "$HOME/.config/Code - OSS/." "$DOTS_STAGE/.config/Code - OSS/"
+    info "  $HOME/.config/Code - OSS/ (Arch code-oss)"
+fi
+# macOS stores VS Code settings under ~/Library/Application Support/Code/
+if [[ -d "$HOME/Library/Application Support/Code" ]]; then
+    mkdir -p "$DOTS_STAGE/Library/Application Support/Code"
+    cp -r "$HOME/Library/Application Support/Code/." \
+        "$DOTS_STAGE/Library/Application Support/Code/"
+    info "  $HOME/Library/Application Support/Code/ (macOS)"
+fi
+
 # ──────────────────────────────────────────────────────────────────────────────
-# 5. BUILD THE PAYLOAD
+# 5. VSCODE EXTENSIONS
+# ──────────────────────────────────────────────────────────────────────────────
+ohai "Capturing VS Code extensions"
+VSCODE_EXT_FILE="$STAGE/vscode-extensions.txt"
+for _code_bin in code code-insiders codium; do
+    if command -v "$_code_bin" &>/dev/null; then
+        "$_code_bin" --list-extensions 2>/dev/null > "$VSCODE_EXT_FILE" && break
+    fi
+done
+if [[ -s "$VSCODE_EXT_FILE" ]]; then
+    EXT_COUNT=$(wc -l < "$VSCODE_EXT_FILE" | tr -d ' ')
+    info "Captured $EXT_COUNT VS Code extension(s)"
+else
+    warn "VS Code not found or no extensions detected; skipping."
+    rm -f "$VSCODE_EXT_FILE"
+fi
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 6. BUILD THE PAYLOAD
 # ──────────────────────────────────────────────────────────────────────────────
 ohai "Building payload archive"
 PAYLOAD_TAR="$WORK_DIR/payload.tar.gz"
@@ -192,7 +227,8 @@ cat > "$OUTPUT" <<'HEADER'
 #   3. Restores SSH keys        → copies to ~/.ssh with correct permissions
 #   4. Writes ~/.setup.conf     → pre-fills all install settings
 #   5. Restores live dotfiles   → ~/.zshrc, ~/.tmux.conf, ~/.config/…
-#   6. Calls setup.sh / install.sh for the full unattended install
+#   6. Installs VS Code extensions (requires `code` on PATH)
+#   7. Calls setup.sh / install.sh for the full unattended install
 
 set -uo pipefail
 
@@ -328,6 +364,25 @@ if [[ -s "$WORK_DIR/setup.conf" ]]; then
     info "~/.setup.conf written"
 fi
 
+# ── Restore VS Code extensions ────────────────────────────────────────────────
+if [[ -f "$WORK_DIR/vscode-extensions.txt" ]]; then
+    _code_bin=""
+    for _b in code code-insiders codium; do
+        if command -v "$_b" &>/dev/null; then _code_bin="$_b"; break; fi
+    done
+    if [[ -n "$_code_bin" ]]; then
+        ohai "Installing VS Code extensions"
+        while IFS= read -r _ext || [[ -n "$_ext" ]]; do
+            [[ -z "$_ext" ]] && continue
+            "$_code_bin" --install-extension "$_ext" --force >/dev/null 2>&1 \
+                && info "  $_ext" \
+                || warn "  Failed to install: $_ext"
+        done < "$WORK_DIR/vscode-extensions.txt"
+    else
+        warn "VS Code binary not found; skipping extension restore."
+    fi
+fi
+
 # ── Download and run the installer ────────────────────────────────────────────
 ohai "Fetching ubuntu-setup installer"
 SETUP_URL="https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/setup.sh"
@@ -337,6 +392,7 @@ curl -fsSL "$SETUP_URL" -o "$SETUP_SH" && chmod +x "$SETUP_SH"
 printf "\n"
 ohai "Launching setup.sh — all settings from snapshot will be used automatically."
 printf "(configure.sh will be skipped if ~/.setup.conf is already present)\n\n"
+export SNAPSHOT_RESTORED=true
 exec bash "$SETUP_SH"
 
 exit 0

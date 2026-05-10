@@ -682,19 +682,23 @@ if [[ "$INSTALL_VSCODE" == true ]]; then
                 "$HOME/.local/bin/code"
         fi
     fi
-    ohai "Installing VS Code extensions..."
-    _EXT_LIST=$(curl -fsSL "$EXTENSIONS_URL" | grep -v '^\s*$')
-    _EXT_TOTAL=$(echo "$_EXT_LIST" | wc -l | tr -d ' ')
-    _EXT_IDX=0
-    while IFS= read -r ext; do
-        [[ -z "$ext" ]] && continue
-        (( _EXT_IDX++ ))
-        # Print a progress line: [idx/total] extension-id
-        printf "\r\033[K  [%d/%d] %s" "$_EXT_IDX" "$_EXT_TOTAL" "$ext"
-        code --install-extension "$ext" >/dev/null 2>&1 || \
-            { printf "\n"; warn "Failed to install extension: $ext"; }
-    done <<< "$_EXT_LIST"
-    printf "\r\033[K  Done: %d extension(s) processed.\n" "$_EXT_IDX"
+    if [[ "${SNAPSHOT_RESTORED:-false}" == true ]]; then
+        info "Skipping extension install — already restored from snapshot."
+    else
+        ohai "Installing VS Code extensions..."
+        _EXT_LIST=$(curl -fsSL "$EXTENSIONS_URL" | grep -v '^\s*$')
+        _EXT_TOTAL=$(echo "$_EXT_LIST" | wc -l | tr -d ' ')
+        _EXT_IDX=0
+        while IFS= read -r ext; do
+            [[ -z "$ext" ]] && continue
+            (( _EXT_IDX++ ))
+            # Print a progress line: [idx/total] extension-id
+            printf "\r\033[K  [%d/%d] %s" "$_EXT_IDX" "$_EXT_TOTAL" "$ext"
+            code --install-extension "$ext" >/dev/null 2>&1 || \
+                { printf "\n"; warn "Failed to install extension: $ext"; }
+        done <<< "$_EXT_LIST"
+        printf "\r\033[K  Done: %d extension(s) processed.\n" "$_EXT_IDX"
+    fi
 fi
 
 # ── Node.js ────────────────────────────────────────────────────────────────────
