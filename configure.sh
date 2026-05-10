@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# configure.sh — dialog-based TUI that collects all install preferences and
+# configure.sh - dialog-based TUI that collects all install preferences and
 # writes them to a sourceable shell config file (default: ~/.setup.conf).
 #
 # Usage:
@@ -9,7 +9,7 @@
 # The generated file is sourced by bootstrap.sh (--config flag) to run
 # a fully unattended install.
 
-# ── Prerequisites ──────────────────────────────────────────────────────────────
+# -- Prerequisites --------------------------------------------------------------
 if ! command -v dialog &>/dev/null; then
     echo "Error: 'dialog' is not installed." >&2
     echo "" >&2
@@ -30,12 +30,12 @@ trap 'rm -f "$TMP" "$SUMMARY_FILE"; clear' EXIT
 
 PLATFORM=$(uname -s)
 
-# ── Helper: show an error box ──────────────────────────────────────────────────
+# -- Helper: show an error box --------------------------------------------------
 d_error() {
     dialog --title "Error" --msgbox "$1" 10 62
 }
 
-# ── Helper: test whether TAG appears in dialog checklist output ────────────────
+# -- Helper: test whether TAG appears in dialog checklist output ----------------
 # dialog emits tags as space-separated bare or quoted words, e.g.:
 #   PODMAN "RUST" NODEJS
 # grep -w treats _ as a word character, so RUST won't match RUST_WASM.
@@ -44,7 +44,7 @@ selected() {
     echo "$output" | grep -qw "$tag"
 }
 
-# ── Welcome ────────────────────────────────────────────────────────────────────
+# -- Welcome --------------------------------------------------------------------
 dialog --backtitle "ubuntu-setup configurator" \
     --title " Welcome " \
     --msgbox "\
@@ -58,7 +58,7 @@ unattended install, or used to reproduce this environment later.\n\
 Navigate with Tab / arrow keys.  Space toggles checkboxes." \
     14 66
 
-# ── Hostname ───────────────────────────────────────────────────────────────────
+# -- Hostname -------------------------------------------------------------------
 CURRENT_HOSTNAME=$(hostname 2>/dev/null || echo "")
 dialog --backtitle "ubuntu-setup configurator" \
     --title " Hostname " \
@@ -68,19 +68,19 @@ dialog --backtitle "ubuntu-setup configurator" \
 SETUP_HOSTNAME=$(cat "$TMP")
 [[ -z "$SETUP_HOSTNAME" ]] && SETUP_HOSTNAME="$CURRENT_HOSTNAME"
 
-# ── System type ────────────────────────────────────────────────────────────────
+# -- System type ----------------------------------------------------------------
 IS_INTERACTIVE=false
 dialog --backtitle "ubuntu-setup configurator" \
     --title " System Type " \
     --yesno \
 "Is this an interactive (desktop / laptop) system?\n\
 \n\
-YES → installs a terminal emulator (kitty), nerd fonts,\n\
+YES -> installs a terminal emulator (kitty), nerd fonts,\n\
       VS Code GUI, and other desktop extras.\n\
-NO  → headless / server setup only." \
+NO  -> headless / server setup only." \
     11 66 && IS_INTERACTIVE=true
 
-# ── GPG identity (asked first — extracts git name/email from key UID) ──────────
+# -- GPG identity (asked first - extracts git name/email from key UID) ----------
 GPG_IMPORT=false
 GPG_KEY_FILE=""
 GPG_FINGERPRINT=""
@@ -93,8 +93,8 @@ dialog --backtitle "ubuntu-setup configurator" \
 "Import a GPG secret key?\n\
 \n\
 The key is imported now to:\n\
-  \u2022 pre-fill your git name and email from the key UID\n\
-  \u2022 configure git to sign commits automatically\n\
+  - pre-fill your git name and email from the key UID\n\
+  - configure git to sign commits automatically\n\
 \n\
 You will be asked for the path to your exported .asc / .gpg file." \
     13 66 && GPG_IMPORT=true
@@ -129,7 +129,7 @@ if $GPG_IMPORT; then
                 | awk -F: '/^uid/{print $10; exit}')
             GIT_NAME=$(echo "$_GPG_UID"  | sed 's/ <.*//')
             GIT_EMAIL=$(echo "$_GPG_UID" | sed 's/.*<\(.*\)>/\1/')
-            # Configure git now — no reason to defer to install.sh
+            # Configure git now - no reason to defer to install.sh
             git config --global user.name        "$GIT_NAME"
             git config --global user.email       "$GIT_EMAIL"
             git config --global user.signingkey  "$GPG_FINGERPRINT"
@@ -160,7 +160,7 @@ Git configured:\n\
     fi
 fi
 
-# ── Git configuration (skipped if GPG import provided name + email) ────────────
+# -- Git configuration (skipped if GPG import provided name + email) ------------
 if ! $GPG_IMPORT || [[ -z "$GIT_NAME" ]] || [[ -z "$GIT_EMAIL" ]]; then
     _PRE_NAME=$(git config --global user.name  2>/dev/null || true)
     _PRE_EMAIL=$(git config --global user.email 2>/dev/null || true)
@@ -168,13 +168,13 @@ if ! $GPG_IMPORT || [[ -z "$GIT_NAME" ]] || [[ -z "$GIT_EMAIL" ]]; then
     [[ -n "$GIT_EMAIL" ]] || GIT_EMAIL="$_PRE_EMAIL"
 
     dialog --backtitle "ubuntu-setup configurator" \
-        --title " Git — Full Name " \
+        --title " Git - Full Name " \
         --inputbox "Your full name used in git commits:" \
         8 60 "$GIT_NAME" 2>"$TMP"
     GIT_NAME=$(cat "$TMP")
 
     dialog --backtitle "ubuntu-setup configurator" \
-        --title " Git — Email " \
+        --title " Git - Email " \
         --inputbox "Your email address used in git commits:" \
         8 60 "$GIT_EMAIL" 2>"$TMP"
     GIT_EMAIL=$(cat "$TMP")
@@ -185,14 +185,14 @@ if ! $GPG_IMPORT || [[ -z "$GIT_NAME" ]] || [[ -z "$GIT_EMAIL" ]]; then
     git config --global init.defaultBranch master 2>/dev/null || true
 fi
 
-# ── SSH keys ───────────────────────────────────────────────────────────────────
+# -- SSH keys -------------------------------------------------------------------
 SSH_COPY=false
 SSH_SRC_DIR=""
 SSH_GENERATE=false
 
 # Step 1: offer to copy from an existing directory
 dialog --backtitle "ubuntu-setup configurator" \
-    --title " SSH Keys \u2014 Import " \
+    --title " SSH Keys - Import " \
     --yesno \
 "Copy SSH keys from an existing directory?\n\
 \n\
@@ -258,7 +258,7 @@ Generate a new SSH key now?\n\
             _SSH_PASS1=$(cat "$TMP")
 
             dialog --backtitle "ubuntu-setup configurator" \
-                --title " SSH Key Passphrase \u2014 Confirm " \
+                --title " SSH Key Passphrase - Confirm " \
                 --passwordbox "Re-enter the passphrase to confirm:" \
                 8 62 2>"$TMP"
             _SSH_PASS2=$(cat "$TMP")
@@ -298,18 +298,16 @@ Add this to GitHub / GitLab / remote servers." \
     fi
 fi
 
-# ── Default shell (Linux only) ─────────────────────────────────────────────────
+# -- Default shell -------------------------------------------------------------
 ZSH_AS_DEFAULT=false
-if [[ "$PLATFORM" == "Linux" ]]; then
-    dialog --backtitle "ubuntu-setup configurator" \
-        --title " Default Shell " \
-        --yesno \
+dialog --backtitle "ubuntu-setup configurator" \
+    --title " Default Shell " \
+    --yesno \
 "Set zsh as your default login shell?\n\
 (Runs: chsh -s \$(which zsh))" \
-        8 54 && ZSH_AS_DEFAULT=true
-fi
+    8 54 && ZSH_AS_DEFAULT=true
 
-# ── Python backend ─────────────────────────────────────────────────────────────
+# -- Python backend -------------------------------------------------------------
 dialog --backtitle "ubuntu-setup configurator" \
     --title " Python Backend " \
     --menu \
@@ -323,10 +321,11 @@ PY_BACKEND=$(cat "$TMP")
 USE_UV=false
 [[ "$PY_BACKEND" == "UV" ]] && USE_UV=true
 
-# ── Optional tools ─────────────────────────────────────────────────────────────
-# Pass 1: all tools except CROSS (which requires both Podman AND Rust).
-# Loop until the user's selection is internally consistent.
-
+# -- Tools & extras -------------------------------------------------------------
+# IS_INTERACTIVE pre-selects desktop defaults; all can be overridden below.
+INSTALL_VSCODE=false
+INSTALL_FONTS=false
+INSTALL_KITTY=false
 INSTALL_PODMAN=false
 INSTALL_RUST=false
 INSTALL_RUST_WASM=false
@@ -335,81 +334,93 @@ INSTALL_CROSS=false
 INSTALL_TYPST=false
 INSTALL_NODEJS=false
 
+if $IS_INTERACTIVE; then
+    INSTALL_VSCODE=true
+    INSTALL_FONTS=true
+    INSTALL_KITTY=true
+fi
+
 while true; do
-    # Build per-item on/off state for checklist continuity across loops.
+    _vc=$( $INSTALL_VSCODE       && echo on || echo off)
+    _fn=$( $INSTALL_FONTS        && echo on || echo off)
+    _kt=$( $INSTALL_KITTY        && echo on || echo off)
     _p=$(  $INSTALL_PODMAN       && echo on || echo off)
     _r=$(  $INSTALL_RUST         && echo on || echo off)
     _rw=$( $INSTALL_RUST_WASM    && echo on || echo off)
     _rn=$( $INSTALL_RUST_NIGHTLY && echo on || echo off)
     _ty=$( $INSTALL_TYPST        && echo on || echo off)
+    _cx=$( $INSTALL_CROSS        && echo on || echo off)
     _nj=$( $INSTALL_NODEJS       && echo on || echo off)
 
     dialog --backtitle "ubuntu-setup configurator" \
-        --title " Optional Tools " \
+        --title " Tools & Extras " \
         --checklist \
-"Select tools to install.  Space = toggle,  Enter = confirm.\n\
-Note: Rust sub-items automatically enable the Rust toolchain.\n\
-      Cross requires BOTH Podman and Rust — select those first." \
-        0 0 8 \
+"Select components to install.  Space = toggle,  Enter = confirm.\n\
+  Rust sub-items (WASM/Nightly/Typst) automatically enable Rust.\n\
+  Selecting Cross automatically enables Podman + Rust." \
+        0 0 12 \
+        "VSCODE"       "VS Code editor"                       "$_vc" \
+        "FONTS"        "Nerd Fonts (CascadiaCode, Meslo)"     "$_fn" \
+        "KITTY"        "Kitty terminal emulator"              "$_kt" \
         "PODMAN"       "Podman (container engine)"            "$_p"  \
         "RUST"         "Rust toolchain (rustup)"              "$_r"  \
-        "RUST_WASM"    "  \u2514\u2500 WASM target (wasm32-unknown)"   "$_rw" \
-        "RUST_NIGHTLY" "  \u2514\u2500 Nightly toolchain"              "$_rn" \
-        "TYPST"        "  \u2514\u2500 Typst document compiler"        "$_ty" \
-        "NODEJS"       "Node.js LTS (via nvm)"                "$_nj" \
+        "RUST_WASM"    "  +- WASM target (wasm32-unknown)"   "$_rw" \
+        "RUST_NIGHTLY" "  +- Nightly toolchain"              "$_rn" \
+        "TYPST"        "  +- Typst document compiler"        "$_ty" \
+        "CROSS"        "  +- Cross (needs Podman + Rust)"    "$_cx" \
+        "NODEJS"       "Node.js LTS (via nvm)"               "$_nj" \
         2>"$TMP"
 
-    # Cancelled → keep current state and move on
+    # Cancelled -> keep current state and move on
     [[ $? -ne 0 ]] && break
 
     TOOLS=$(cat "$TMP")
+    INSTALL_VSCODE=false;       selected VSCODE       "$TOOLS" && INSTALL_VSCODE=true
+    INSTALL_FONTS=false;        selected FONTS        "$TOOLS" && INSTALL_FONTS=true
+    INSTALL_KITTY=false;        selected KITTY        "$TOOLS" && INSTALL_KITTY=true
     INSTALL_PODMAN=false;       selected PODMAN       "$TOOLS" && INSTALL_PODMAN=true
     INSTALL_RUST=false;         selected RUST         "$TOOLS" && INSTALL_RUST=true
     INSTALL_RUST_WASM=false;    selected RUST_WASM    "$TOOLS" && INSTALL_RUST_WASM=true
     INSTALL_RUST_NIGHTLY=false; selected RUST_NIGHTLY "$TOOLS" && INSTALL_RUST_NIGHTLY=true
     INSTALL_TYPST=false;        selected TYPST        "$TOOLS" && INSTALL_TYPST=true
+    INSTALL_CROSS=false;        selected CROSS        "$TOOLS" && INSTALL_CROSS=true
     INSTALL_NODEJS=false;       selected NODEJS       "$TOOLS" && INSTALL_NODEJS=true
 
-    # Rust sub-items automatically pull in the Rust toolchain (silent, no loop).
+    # Rust sub-items automatically pull in the Rust toolchain.
     if { $INSTALL_RUST_WASM || $INSTALL_RUST_NIGHTLY || $INSTALL_TYPST; } && ! $INSTALL_RUST; then
+        INSTALL_RUST=true
+    fi
+
+    # Cross requires Podman + Rust - auto-enable both.
+    if $INSTALL_CROSS; then
+        INSTALL_PODMAN=true
         INSTALL_RUST=true
     fi
 
     break
 done
 
-# Pass 2: offer CROSS only if both Podman and Rust are now selected.
-INSTALL_CROSS=false
-if $INSTALL_PODMAN && $INSTALL_RUST; then
-    dialog --backtitle "ubuntu-setup configurator" \
-        --title " Cross-Compilation " \
-        --checklist \
-"Podman + Rust are selected — Cross is available.\n\
-Cross compiles Rust projects for foreign targets using containers." \
-        0 0 1 \
-        "CROSS" "Cross (cross-compilation tool)" off \
-        2>"$TMP"
-    selected CROSS "$(cat "$TMP")" && INSTALL_CROSS=true
-fi
-
-# ── Build summary string ───────────────────────────────────────────────────────
+# -- Build summary string -------------------------------------------------------
 yn() { $1 && echo "yes" || echo "no"; }
 
 cat > "$SUMMARY_FILE" <<SUMMARY
 Hostname        : $SETUP_HOSTNAME
 Interactive     : $(yn $IS_INTERACTIVE)
-─────────────────────────────────────────
+-----------------------------------------
 Git name        : ${GIT_NAME:-(not set)}
 Git email       : ${GIT_EMAIL:-(not set)}
-─────────────────────────────────────────
-GPG import      : $(yn $GPG_IMPORT)$(  $GPG_IMPORT && echo " → $(basename "$GPG_KEY_FILE")" || true)
+-----------------------------------------
+GPG import      : $(yn $GPG_IMPORT)$(  $GPG_IMPORT && echo " -> $(basename "$GPG_KEY_FILE")" || true)
 $( $GPG_IMPORT && [[ -n "$GPG_FINGERPRINT" ]] && echo "GPG fingerprint : $GPG_FINGERPRINT" || true)
-SSH import      : $(yn $SSH_COPY)$(     $SSH_COPY      && echo " → $SSH_SRC_DIR" || true)
+SSH import      : $(yn $SSH_COPY)$(     $SSH_COPY      && echo " -> $SSH_SRC_DIR" || true)
 SSH generated   : $(yn $SSH_GENERATE)
 Zsh as default  : $(yn $ZSH_AS_DEFAULT)
-─────────────────────────────────────────
+-----------------------------------------
 Python backend  : $PY_BACKEND
-─────────────────────────────────────────
+-----------------------------------------
+VS Code         : $(yn $INSTALL_VSCODE)
+Nerd Fonts      : $(yn $INSTALL_FONTS)
+Kitty terminal  : $(yn $INSTALL_KITTY)
 Podman          : $(yn $INSTALL_PODMAN)
 Rust            : $(yn $INSTALL_RUST)
   WASM target   : $(yn $INSTALL_RUST_WASM)
@@ -417,11 +428,11 @@ Rust            : $(yn $INSTALL_RUST)
   Cross         : $(yn $INSTALL_CROSS)
   Typst         : $(yn $INSTALL_TYPST)
 Node.js         : $(yn $INSTALL_NODEJS)
-─────────────────────────────────────────
+-----------------------------------------
 Output file     : $CONFIG_FILE
 SUMMARY
 
-# ── Confirm + write ────────────────────────────────────────────────────────────
+# -- Confirm + write ------------------------------------------------------------
 # Show summary in a scrollable textbox (auto-sizes to terminal, handles resize)
 dialog --backtitle "ubuntu-setup configurator" \
     --title " Configuration Summary " \
@@ -441,7 +452,7 @@ fi
 
 # Write a sourceable shell config file.
 # GPG import, SSH copy, and SSH keygen were all performed live above by
-# configure.sh — install.sh must not repeat them.  Only the fingerprint is
+# configure.sh - install.sh must not repeat them.  Only the fingerprint is
 # kept so install.sh can wire up git commit signing.
 # Use printf '%q' to safely quote string values.
 Q_HOSTNAME=$(printf '%q' "$SETUP_HOSTNAME")
@@ -472,6 +483,9 @@ ZSH_AS_DEFAULT=$ZSH_AS_DEFAULT
 
 USE_UV=$USE_UV
 
+INSTALL_VSCODE=$INSTALL_VSCODE
+INSTALL_FONTS=$INSTALL_FONTS
+INSTALL_KITTY=$INSTALL_KITTY
 INSTALL_PODMAN=$INSTALL_PODMAN
 INSTALL_RUST=$INSTALL_RUST
 INSTALL_RUST_WASM=$INSTALL_RUST_WASM

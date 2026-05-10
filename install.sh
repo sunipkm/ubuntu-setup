@@ -81,6 +81,9 @@ GIT_EMAIL="${GIT_EMAIL:-}"
 GPG_FINGERPRINT="${GPG_FINGERPRINT:-}"
 ZSH_AS_DEFAULT="${ZSH_AS_DEFAULT:-false}"
 USE_UV="${USE_UV:-false}"
+INSTALL_VSCODE="${INSTALL_VSCODE:-$IS_INTERACTIVE}"
+INSTALL_FONTS="${INSTALL_FONTS:-$IS_INTERACTIVE}"
+INSTALL_KITTY="${INSTALL_KITTY:-$IS_INTERACTIVE}"
 INSTALL_PODMAN="${INSTALL_PODMAN:-false}"
 INSTALL_RUST="${INSTALL_RUST:-false}"
 INSTALL_RUST_WASM="${INSTALL_RUST_WASM:-false}"
@@ -190,35 +193,35 @@ fi
 
 # ── Package manager update / upgrade ──────────────────────────────────────────
 ohai "Updating package manager"
-$UPDATE  >/dev/null
-$UPGRADE >/dev/null
+$UPDATE
+$UPGRADE
 
 # ── Essential build tools ─────────────────────────────────────────────────────
 ohai "Installing essential build tools"
 if MACOS; then
-    $INSTALL wget gnupg pkg-config libusb gfortran pv >/dev/null
+    $INSTALL wget gnupg pkg-config libusb gfortran pv
 elif DEBIAN; then
     $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev \
-             gfortran cifs-utils git git-lfs gnupg >/dev/null
+             gfortran cifs-utils git git-lfs gnupg
 elif ARCHLINUX; then
     $INSTALL base-devel pkgconf libusb clang gcc-fortran cifs-utils \
-             wget python-pip git git-lfs gnupg >/dev/null
+             wget python-pip git git-lfs gnupg
 elif FEDORA; then
     $INSTALL gcc gcc-c++ make pkgconf-pkg-config libusbx-devel clang \
-             gcc-gfortran cifs-utils wget python3-pip git git-lfs gnupg2 >/dev/null
+             gcc-gfortran cifs-utils wget python3-pip git git-lfs gnupg2
 fi
 
 # ── rsync ─────────────────────────────────────────────────────────────────────
 if ! MACOS && ! command -v rsync &>/dev/null; then
     info "Installing rsync..."
-    $INSTALL rsync >/dev/null
+    $INSTALL rsync
 fi
 
 # ── zsh ───────────────────────────────────────────────────────────────────────
 if ! MACOS && ! command -v zsh &>/dev/null; then
     ohai "Installing zsh"
-    if DEBIAN; then execute_sudo apt-get install -y zsh >/dev/null
-    else $INSTALL zsh >/dev/null; fi
+    if DEBIAN; then execute_sudo apt-get install -y zsh
+    else $INSTALL zsh; fi
 fi
 if [[ "$ZSH_AS_DEFAULT" == true ]] && [[ "$SHELL" != "$(command -v zsh)" ]]; then
     ohai "Setting zsh as default shell"
@@ -232,23 +235,23 @@ export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
 # ── QoL CLI tools ─────────────────────────────────────────────────────────────
 ohai "Installing QoL CLI tools"
 
-command -v zoxide &>/dev/null || { info "zoxide..."; $INSTALL zoxide >/dev/null; }
-command -v fzf    &>/dev/null || { info "fzf...";    $INSTALL fzf    >/dev/null; }
-command -v tmux   &>/dev/null || { info "tmux...";   $INSTALL tmux   >/dev/null; }
-command -v rg     &>/dev/null || { info "ripgrep..."; $INSTALL ripgrep >/dev/null; }
-command -v jq     &>/dev/null || { info "jq...";     $INSTALL jq     >/dev/null; }
-command -v btop   &>/dev/null || { info "btop...";   $INSTALL btop   >/dev/null; }
+command -v zoxide &>/dev/null || { info "zoxide..."; $INSTALL zoxide; }
+command -v fzf    &>/dev/null || { info "fzf...";    $INSTALL fzf; }
+command -v tmux   &>/dev/null || { info "tmux...";   $INSTALL tmux; }
+command -v rg     &>/dev/null || { info "ripgrep..."; $INSTALL ripgrep; }
+command -v jq     &>/dev/null || { info "jq...";     $INSTALL jq; }
+command -v btop   &>/dev/null || { info "btop...";   $INSTALL btop; }
 
 # eza / exa
 if ! command -v eza &>/dev/null && ! command -v exa &>/dev/null; then
     info "eza..."
-    $INSTALL eza >/dev/null || $INSTALL exa >/dev/null || warn "Could not install eza/exa."
+    $INSTALL eza || $INSTALL exa || warn "Could not install eza/exa."
 fi
 
 # bat (Debian has a name conflict → batcat)
 if ! command -v bat &>/dev/null && ! command -v batcat &>/dev/null; then
     info "bat..."
-    $INSTALL bat >/dev/null || $INSTALL batcat >/dev/null || warn "Could not install bat."
+    $INSTALL bat || $INSTALL batcat || warn "Could not install bat."
     if DEBIAN && command -v batcat &>/dev/null; then
         ln -sf /usr/bin/batcat "$HOME/.local/bin/bat"
     fi
@@ -258,30 +261,30 @@ fi
 if ! command -v fd &>/dev/null && ! command -v fdfind &>/dev/null; then
     info "fd..."
     if DEBIAN; then
-        $INSTALL fd-find >/dev/null && \
+        $INSTALL fd-find && \
             ln -sf /usr/bin/fdfind "$HOME/.local/bin/fd"
     elif FEDORA; then
-        $INSTALL fd-find >/dev/null
+        $INSTALL fd-find
     else
-        $INSTALL fd >/dev/null
+        $INSTALL fd
     fi
 fi
 
 # ── SSH / OpenSSL / unzip ──────────────────────────────────────────────────────
 ohai "Installing SSH / OpenSSL / unzip"
 if DEBIAN; then
-    $INSTALL openssh-server openssh-client libssl-dev unzip >/dev/null
+    $INSTALL openssh-server openssh-client libssl-dev unzip
 elif ARCHLINUX; then
-    $INSTALL openssh openssl unzip >/dev/null
+    $INSTALL openssh openssl unzip
 elif FEDORA; then
-    $INSTALL openssh-server openssh-clients openssl-devel unzip >/dev/null
+    $INSTALL openssh-server openssh-clients openssl-devel unzip
 elif MACOS; then
-    $INSTALL openssl nano >/dev/null
+    $INSTALL openssl nano
 fi
 mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
 
-# ── Fonts ──────────────────────────────────────────────────────────────────────
-if INTERACTIVE; then
+# -- Fonts ---------------------------------------------------------------------
+if [[ "$INSTALL_FONTS" == true ]]; then
     ohai "Installing fonts"
     SYSTEM_FONT_DIR=""; FONT_TARGET_DIR=""; FONT_INSTALLED=false; FONTS_ALREADY_PRESENT=false
     if DEBIAN;    then SYSTEM_FONT_DIR="/usr/share/fonts/truetype"; fi
@@ -323,7 +326,7 @@ if INTERACTIVE; then
             info "Downloading Microsoft Aptos fonts..."
             curl -Lo aptos.zip \
                 "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip"
-            unzip -o aptos.zip -d aptos >/dev/null
+            unzip -o aptos.zip -d aptos
         fi
         for font_file in "$WORK_DIR"/*.ttf; do
             [[ -f "$font_file" ]] || continue
@@ -337,7 +340,7 @@ if INTERACTIVE; then
         done
         if (DEBIAN || ARCHLINUX || FEDORA) && $FONT_INSTALLED; then
             info "Updating font cache..."
-            execute_sudo fc-cache -f -v >/dev/null
+            execute_sudo fc-cache -f -v
         fi
         cd "$WORK_DIR"
     fi
@@ -349,12 +352,12 @@ if ! command -v starship &>/dev/null; then
     curl -sSf https://starship.rs/install.sh | sh -s -- -y -b "$HOME/.local/bin"
 fi
 
-# ── kitty terminal ─────────────────────────────────────────────────────────────
-if INTERACTIVE; then
+# -- kitty terminal ------------------------------------------------------------
+if [[ "$INSTALL_KITTY" == true ]]; then
     if (DEBIAN || ARCHLINUX || FEDORA) && ! command -v kitty &>/dev/null; then
         ohai "Installing kitty"
         if ARCHLINUX || FEDORA; then
-            $INSTALL kitty >/dev/null
+            $INSTALL kitty
         else
             curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin launch=n
             ln -sf "$HOME/.local/kitty.app/bin/kitty" \
@@ -409,8 +412,8 @@ if $RUST_INSTALLED; then
         ohai "Installing nightly toolchain"
         rustup toolchain install nightly
     fi
-    cargo install cargo-cache    2>/dev/null || true
-    cargo install cargo-clean-all 2>/dev/null || true
+    cargo install cargo-cache    || true
+    cargo install cargo-clean-all || true
 fi
 
 # ── Cross ──────────────────────────────────────────────────────────────────────
@@ -431,8 +434,8 @@ if ! command -v lazygit &>/dev/null; then
             "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
         tar xf "$WORK_DIR/lazygit.tar.gz" -C "$WORK_DIR" lazygit
         install "$WORK_DIR/lazygit" -D -t "$HOME/.local/bin/"
-    elif ARCHLINUX; then $INSTALL lazygit >/dev/null
-    elif MACOS;     then $INSTALL lazygit >/dev/null
+    elif ARCHLINUX; then $INSTALL lazygit
+    elif MACOS;     then $INSTALL lazygit
     fi
 fi
 
@@ -446,9 +449,9 @@ if ! command -v nvim &>/dev/null; then
             "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-linux-x86_64.tar.gz"
         tar xf "$WORK_DIR/neovim.tar.gz" -C "$WORK_DIR"
         execute_sudo cp -r "$WORK_DIR/nvim-linux-x86_64/." /usr/local
-    elif ARCHLINUX; then $INSTALL neovim >/dev/null
-    elif FEDORA;    then $INSTALL neovim >/dev/null
-    elif MACOS;     then $INSTALL neovim >/dev/null
+    elif ARCHLINUX; then $INSTALL neovim
+    elif FEDORA;    then $INSTALL neovim
+    elif MACOS;     then $INSTALL neovim
     fi
 fi
 
@@ -460,7 +463,7 @@ if ! command -v termdown &>/dev/null && ! command -v countdown &>/dev/null; then
     elif ARCHLINUX || FEDORA; then
         /usr/bin/python3 -m pip install --user termdown
     elif MACOS; then
-        $INSTALL countdown >/dev/null
+        $INSTALL countdown
     fi
 fi
 
@@ -490,19 +493,19 @@ _OMZ_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
 
 [[ -d "$_OMZ_CUSTOM/themes/powerlevel10k" ]] || \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
-        "$_OMZ_CUSTOM/themes/powerlevel10k" &>/dev/null || warn "powerlevel10k clone failed."
+        "$_OMZ_CUSTOM/themes/powerlevel10k" || warn "powerlevel10k clone failed."
 
 [[ -d "$_OMZ_CUSTOM/plugins/zsh-autosuggestions" ]] || \
     git clone https://github.com/zsh-users/zsh-autosuggestions \
-        "$_OMZ_CUSTOM/plugins/zsh-autosuggestions" &>/dev/null || warn "zsh-autosuggestions clone failed."
+        "$_OMZ_CUSTOM/plugins/zsh-autosuggestions" || warn "zsh-autosuggestions clone failed."
 
 [[ -d "$_OMZ_CUSTOM/plugins/zsh-syntax-highlighting" ]] || \
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git \
-        "$_OMZ_CUSTOM/plugins/zsh-syntax-highlighting" &>/dev/null || warn "zsh-syntax-highlighting clone failed."
+        "$_OMZ_CUSTOM/plugins/zsh-syntax-highlighting" || warn "zsh-syntax-highlighting clone failed."
 
 [[ -d "$_OMZ_CUSTOM/plugins/fzf-tab" ]] || \
     git clone https://github.com/Aloxaf/fzf-tab.git \
-        "$_OMZ_CUSTOM/plugins/fzf-tab" &>/dev/null || warn "fzf-tab clone failed."
+        "$_OMZ_CUSTOM/plugins/fzf-tab" || warn "fzf-tab clone failed."
 
 # ── tmux plugins ───────────────────────────────────────────────────────────────
 ohai "Installing tmux plugins"
@@ -511,25 +514,25 @@ if [[ ! -d "$HOME/.config/tmux/plugins/catppuccin/tmux" ]]; then
         | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
     mkdir -p "$HOME/.config/tmux/plugins/catppuccin"
     git clone -b "v${CATPPUCCIN_VERSION}" https://github.com/catppuccin/tmux.git \
-        "$HOME/.config/tmux/plugins/catppuccin/tmux" &>/dev/null || warn "catppuccin/tmux clone failed."
+        "$HOME/.config/tmux/plugins/catppuccin/tmux" || warn "catppuccin/tmux clone failed."
 fi
 
 if [[ ! -d "$HOME/.tmux/plugins/tmuxifier" ]]; then
     mkdir -p "$HOME/.tmux/plugins"
     git clone https://github.com/jimeh/tmuxifier.git \
-        "$HOME/.tmux/plugins/tmuxifier" &>/dev/null || warn "tmuxifier clone failed."
+        "$HOME/.tmux/plugins/tmuxifier" || warn "tmuxifier clone failed."
 fi
 
 if [[ ! -d "$HOME/.tmux/plugins/tpm" ]]; then
     mkdir -p "$HOME/.tmux/plugins"
     git clone https://github.com/tmux-plugins/tpm.git \
-        "$HOME/.tmux/plugins/tpm" &>/dev/null || warn "tpm clone failed."
+        "$HOME/.tmux/plugins/tpm" || warn "tpm clone failed."
 fi
 
 # ── zplug ──────────────────────────────────────────────────────────────────────
 if [[ ! -d "$HOME/.zplug" ]]; then
     ohai "Installing zplug"
-    git clone https://github.com/zplug/zplug "$HOME/.zplug" &>/dev/null || warn "zplug clone failed."
+    git clone https://github.com/zplug/zplug "$HOME/.zplug" || warn "zplug clone failed."
 fi
 
 # ── Dotfiles ───────────────────────────────────────────────────────────────────
@@ -621,7 +624,7 @@ if [[ "$USE_UV" == true ]]; then
         UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.uvpython3" uv python find 3.13)
     fi
     export PATH="$(dirname "$UV_PYTHON"):$PATH"
-    PIP_INSTALL="uv pip install --python $UV_PYTHON --system"
+    PIP_INSTALL="uv pip install --python $UV_PYTHON"
 else
     if [[ ! -f "$HOME/.miniconda3/bin/activate" ]]; then
         if DEBIAN || ARCHLINUX || FEDORA; then MINICONDA_INSTALLER="Miniconda3-latest-Linux-${ARCH}.sh"
@@ -646,42 +649,50 @@ $PIP_INSTALL numpy matplotlib xarray dask netcdf4 astropy scipy \
              scikit-image natsort fortls ipykernel jupyter
 $PIP_INSTALL "skmpython@git+https://github.com/sunipkm/skmpython"
 
-# ── VS Code ────────────────────────────────────────────────────────────────────
+# -- VS Code -------------------------------------------------------------------
 EXTENSIONS_URL="https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/extensions.txt"
 
-if INTERACTIVE; then
+if [[ "$INSTALL_VSCODE" == true ]]; then
     if ! command -v code &>/dev/null; then
         ohai "Installing VS Code"
         if DEBIAN; then
-            execute_sudo apt-get install -y wget gpg >/dev/null
+            execute_sudo apt-get install -y wget gpg
             wget -qO- https://packages.microsoft.com/keys/microsoft.asc \
                 | gpg --dearmor > "$WORK_DIR/packages.microsoft.gpg"
             execute_sudo install -D -o root -g root -m 644 \
                 "$WORK_DIR/packages.microsoft.gpg" /etc/apt/keyrings/packages.microsoft.gpg
             execute_sudo sh -c \
                 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
-            execute_sudo apt-get install -y apt-transport-https >/dev/null
-            execute_sudo apt-get update >/dev/null
-            execute_sudo apt-get install -y code >/dev/null
-            execute_sudo apt-get -f install -y >/dev/null
-        elif ARCHLINUX; then $INSTALL code >/dev/null
+            execute_sudo apt-get install -y apt-transport-https
+            execute_sudo apt-get update
+            execute_sudo apt-get install -y code
+            execute_sudo apt-get -f install -y
+        elif ARCHLINUX; then $INSTALL code
         elif FEDORA; then
             execute_sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
             printf '[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc\n' \
                 | execute_sudo tee /etc/yum.repos.d/vscode.repo >/dev/null
             execute_sudo dnf check-update >/dev/null || true
-            $INSTALL code >/dev/null || warn "VS Code install failed on Fedora."
+            $INSTALL code || warn "VS Code install failed on Fedora."
         elif MACOS; then
-            brew install --cask visual-studio-code >/dev/null
+            brew install --cask visual-studio-code
             ln -sf "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" \
                 "$HOME/.local/bin/code"
         fi
     fi
-    info "Installing VS Code extensions..."
-    while read -r ext; do
+    ohai "Installing VS Code extensions..."
+    _EXT_LIST=$(curl -fsSL "$EXTENSIONS_URL" | grep -v '^\s*$')
+    _EXT_TOTAL=$(echo "$_EXT_LIST" | wc -l | tr -d ' ')
+    _EXT_IDX=0
+    while IFS= read -r ext; do
         [[ -z "$ext" ]] && continue
-        code --install-extension "$ext" >/dev/null || true
-    done < <(curl -fsSL "$EXTENSIONS_URL")
+        (( _EXT_IDX++ ))
+        # Print a progress line: [idx/total] extension-id
+        printf "\r\033[K  [%d/%d] %s" "$_EXT_IDX" "$_EXT_TOTAL" "$ext"
+        code --install-extension "$ext" >/dev/null 2>&1 || \
+            { printf "\n"; warn "Failed to install extension: $ext"; }
+    done <<< "$_EXT_LIST"
+    printf "\r\033[K  Done: %d extension(s) processed.\n" "$_EXT_IDX"
 fi
 
 # ── Node.js ────────────────────────────────────────────────────────────────────
@@ -710,7 +721,7 @@ export NVM_DIR="$HOME/.nvm"
 if command -v node &>/dev/null && command -v npm &>/dev/null; then
     if ! command -v yarn &>/dev/null; then
         ohai "Installing Yarn"
-        npm install --global yarn >/dev/null || warn "Yarn install failed."
+        npm install --global yarn || warn "Yarn install failed."
     fi
 fi
 
@@ -722,14 +733,14 @@ elif ARCHLINUX; then
     if ! command -v yay &>/dev/null && [[ "${EUID:-${UID}}" != "0" ]]; then
         ohai "Building yay (AUR helper)"
         YAY_BUILD_DIR="$WORK_DIR/yay-build"
-        git clone https://aur.archlinux.org/yay-bin.git "$YAY_BUILD_DIR" &>/dev/null || \
-            git clone https://aur.archlinux.org/yay.git  "$YAY_BUILD_DIR" &>/dev/null
-        (cd "$YAY_BUILD_DIR" && makepkg -si --noconfirm >/dev/null) || warn "yay build failed."
+        git clone https://aur.archlinux.org/yay-bin.git "$YAY_BUILD_DIR" || \
+            git clone https://aur.archlinux.org/yay.git  "$YAY_BUILD_DIR"
+        (cd "$YAY_BUILD_DIR" && makepkg -si --noconfirm) || warn "yay build failed."
     fi
     if command -v yay &>/dev/null; then
         yay -S --noconfirm --needed \
             ttf-ms-fonts ttf-vista-fonts ttf-office-2007-fonts \
-            ttf-win7-fonts ttf-ms-win8 ttf-ms-win10 ttf-ms-win11 >/dev/null || \
+            ttf-win7-fonts ttf-ms-win8 ttf-ms-win10 ttf-ms-win11 || \
             warn "One or more Microsoft font packages failed."
     fi
 elif FEDORA; then
