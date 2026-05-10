@@ -31,6 +31,12 @@ if ! command -v gh &>/dev/null; then
     exit 1
 fi
 
+# Delete existing local tag if present
+if git -C "$PDIR" tag | grep -qx "$RELEASE_TAG"; then
+    echo "Local tag $RELEASE_TAG already exists — deleting..."
+    git -C "$PDIR" tag -d "$RELEASE_TAG"
+fi
+
 # Create git tag — signed for stable releases, annotated for pre-releases
 if [[ "$IS_PRERELEASE" == false ]]; then
     echo "Creating signed tag $RELEASE_TAG..."
@@ -45,9 +51,9 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-# Push the tag to GitHub
+# Push the tag to GitHub (force-push to overwrite if it exists remotely)
 echo "Pushing tag $RELEASE_TAG to GitHub..."
-git -C "$PDIR" push origin "$RELEASE_TAG"
+git -C "$PDIR" push origin "$RELEASE_TAG" --force
 if [[ $? -ne 0 ]]; then
     echo "Error: Failed to push tag '$RELEASE_TAG' to GitHub"
     git -C "$PDIR" tag -d "$RELEASE_TAG"
@@ -56,14 +62,18 @@ fi
 
 # Build the artifact using the existing build script
 echo "Building artifact..."
-"$PDIR/build_dotfiles_installer.sh"
+"$PDIR/build_dotfiles_installer.sh" "$RELEASE_TAG"
 if [[ $? -ne 0 ]]; then
-    echo "Error: build_release.sh failed"
+    echo "Error: build_dotfiles_installer.sh failed"
     exit 1
 fi
 
-# Create GitHub release and upload the artifact
+# Delete existing GitHub release if present, then recreate
 echo "Creating GitHub release $RELEASE_TAG..."
+if gh release view "$RELEASE_TAG" &>/dev/null; then
+    echo "Release $RELEASE_TAG already exists on GitHub — deleting..."
+    gh release delete "$RELEASE_TAG" --yes
+fi
 if [[ "$IS_PRERELEASE" == true ]]; then
     gh release create "$RELEASE_TAG" "$PDIR/dotfiles_installer.sh" \
         --title "$RELEASE_TAG" \

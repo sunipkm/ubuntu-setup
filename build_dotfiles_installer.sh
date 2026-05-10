@@ -23,4 +23,13 @@ trap cleanup EXIT
 
 tar -cvzf "$WORK_DIR/dotfiles.tar.gz" dotfiles dotfiles_debian
 base64 < "$WORK_DIR/dotfiles.tar.gz" > "$WORK_DIR/dotfiles_payload.txt"
-cat dotfiles_installer_base.sh $WORK_DIR/dotfiles_payload.txt > "$PDIR/dotfiles_installer.sh"
+
+# Write the installer: inject version after shebang if a tag was supplied
+RELEASE_TAG="${1:-}"
+head -1 dotfiles_installer_base.sh > "$PDIR/dotfiles_installer.sh"
+if [[ -n "$RELEASE_TAG" ]]; then
+    printf 'DOTFILES_VERSION="%s"\n' "$RELEASE_TAG" >> "$PDIR/dotfiles_installer.sh"
+    printf 'echo "Installing dotfiles %s"\n' "$RELEASE_TAG" >> "$PDIR/dotfiles_installer.sh"
+fi
+tail -n +2 dotfiles_installer_base.sh >> "$PDIR/dotfiles_installer.sh"
+cat "$WORK_DIR/dotfiles_payload.txt" >> "$PDIR/dotfiles_installer.sh"

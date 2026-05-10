@@ -535,11 +535,21 @@ fi
 # ── Dotfiles ───────────────────────────────────────────────────────────────────
 ohai "Installing dotfiles"
 cd "$WORK_DIR"
-UBUNTU_SETUP_VERSION=$(curl -s "https://api.github.com/repos/sunipkm/ubuntu-setup/releases/latest" \
-    | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
+# /releases/latest never returns pre-releases; use the releases list and
+# pick the first entry (most recent, including pre-releases) when the
+# UBUNTU_SETUP_PRERELEASE env var is set, otherwise use /releases/latest.
+if [[ "${UBUNTU_SETUP_PRERELEASE:-}" == "1" ]]; then
+    UBUNTU_SETUP_VERSION=$(curl -s "https://api.github.com/repos/sunipkm/ubuntu-setup/releases" \
+        | grep tag_name | head -1 | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+(-pre[0-9]+)?).*/\1/p')
+else
+    UBUNTU_SETUP_VERSION=$(curl -s "https://api.github.com/repos/sunipkm/ubuntu-setup/releases/latest" \
+        | grep tag_name | sed -nre 's/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p')
+fi
 if [[ -n "$UBUNTU_SETUP_VERSION" ]]; then
     curl -Lo dotfiles_installer.sh \
         "https://github.com/sunipkm/ubuntu-setup/releases/download/v${UBUNTU_SETUP_VERSION}/dotfiles_installer.sh"
+    DOTFILES_VERSION=$(grep -m1 '^DOTFILES_VERSION=' dotfiles_installer.sh | cut -d'"' -f2)
+    ohai "Installing dotfiles ${DOTFILES_VERSION:-v${UBUNTU_SETUP_VERSION}}"
     bash dotfiles_installer.sh || warn "dotfiles_installer.sh failed."
 else
     warn "Could not determine ubuntu-setup release version; skipping dotfiles."
