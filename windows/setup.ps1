@@ -106,12 +106,15 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 
 Write-Info "Updating winget source lists..."
-winget source update 2>&1 | Out-Null
+# Only update the 'winget' source — the 'msstore' source can fail with certificate
+# errors in VMs, corporate networks, or fresh Windows installs and is not needed here.
+winget source update --name winget 2>&1 | Out-Null
 
 # ── Git for Windows ────────────────────────────────────────────────────────────
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Step "Installing Git for Windows..."
     winget install --id Git.Git `
+        --source winget `
         --silent `
         --accept-package-agreements `
         --accept-source-agreements `

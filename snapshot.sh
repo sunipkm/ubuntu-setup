@@ -60,8 +60,121 @@ if [[ -f "$HOME/.setup.conf" ]]; then
     cp "$HOME/.setup.conf" "$STAGE/setup.conf"
     info "Included ~/.setup.conf"
 else
-    warn "~/.setup.conf not found — snapshot will prompt configure.sh interactively."
-    touch "$STAGE/setup.conf"   # empty placeholder; setup.sh will re-run the TUI
+    warn "~/.setup.conf not found — rebuilding from detected system state."
+    info "Detecting installed tools and configuration..."
+
+    # ── Hostname ───────────────────────────────────────────────────────────────
+    _det_hostname=$(hostname 2>/dev/null || echo "")
+
+    # ── Interactive (has a display, is macOS, or kitty is present) ─────────────
+    _det_interactive=false
+    if [[ "$(uname -s)" == "Darwin" ]] || \
+       [[ -n "${DISPLAY:-}" ]] || \
+       [[ -n "${WAYLAND_DISPLAY:-}" ]] || \
+       command -v kitty &>/dev/null; then
+        _det_interactive=true
+    fi
+
+    # ── Git ────────────────────────────────────────────────────────────────────
+    _det_git_name=$(git config --global user.name  2>/dev/null || echo "")
+    _det_git_email=$(git config --global user.email 2>/dev/null || echo "")
+
+    # ── GPG ────────────────────────────────────────────────────────────────────
+    _det_gpg_fpr=$(gpg --list-secret-keys --with-colons 2>/dev/null \
+        | awk -F: '/^fpr/{print $10; exit}')
+
+    # ── Default shell ──────────────────────────────────────────────────────────
+    _det_zsh=false
+    [[ "${SHELL:-}" == */zsh ]] && _det_zsh=true
+
+    # ── Python backend ─────────────────────────────────────────────────────────
+    _det_uv=false
+    command -v uv &>/dev/null && _det_uv=true
+
+    # ── VS Code ────────────────────────────────────────────────────────────────
+    _det_vscode=false
+    for _cb in code code-insiders codium; do
+        command -v "$_cb" &>/dev/null && _det_vscode=true && break
+    done
+
+    # ── Nerd Fonts ─────────────────────────────────────────────────────────────
+    _det_fonts=false
+    if fc-list 2>/dev/null | grep -qi "CascadiaCode\|MesloLGS\|NerdFont" || \
+       find "$HOME/Library/Fonts" /Library/Fonts /usr/share/fonts /usr/local/share/fonts \
+           -maxdepth 3 \( -name "*CascadiaCode*" -o -name "*MesloLGS*" \) \
+           2>/dev/null | grep -q .; then
+        _det_fonts=true
+    fi
+
+    # ── Kitty ──────────────────────────────────────────────────────────────────
+    _det_kitty=false
+    command -v kitty &>/dev/null && _det_kitty=true
+
+    # ── Podman ─────────────────────────────────────────────────────────────────
+    _det_podman=false
+    command -v podman &>/dev/null && _det_podman=true
+
+    # ── Rust ───────────────────────────────────────────────────────────────────
+    _det_rust=false
+    { command -v rustup &>/dev/null || command -v cargo &>/dev/null; } && _det_rust=true
+
+    _det_rust_wasm=false
+    $_det_rust && rustup target list --installed 2>/dev/null \
+        | grep -q "wasm32" && _det_rust_wasm=true
+
+    _det_rust_nightly=false
+    $_det_rust && rustup toolchain list 2>/dev/null \
+        | grep -q "nightly" && _det_rust_nightly=true
+
+    # ── Cross ──────────────────────────────────────────────────────────────────
+    _det_cross=false
+    command -v cross &>/dev/null && _det_cross=true
+
+    # ── Typst ──────────────────────────────────────────────────────────────────
+    _det_typst=false
+    command -v typst &>/dev/null && _det_typst=true
+
+    # ── Node.js ────────────────────────────────────────────────────────────────
+    _det_nodejs=false
+    { command -v node &>/dev/null || [[ -d "$HOME/.nvm" ]]; } && _det_nodejs=true
+
+    # ── Write reconstructed config ─────────────────────────────────────────────
+    _Q_hostname=$(printf '%q' "$_det_hostname")
+    _Q_git_name=$(printf '%q' "$_det_git_name")
+    _Q_git_email=$(printf '%q' "$_det_git_email")
+    _Q_gpg_fpr=$(printf '%q'  "${_det_gpg_fpr:-}")
+
+    cat > "$STAGE/setup.conf" <<REBUILT_CONF
+# ubuntu-setup configuration
+# Rebuilt by snapshot.sh on $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+# (~/.setup.conf was absent; values inferred from installed tools)
+
+SETUP_HOSTNAME=$_Q_hostname
+IS_INTERACTIVE=$_det_interactive
+
+GIT_NAME=$_Q_git_name
+GIT_EMAIL=$_Q_git_email
+
+# Fingerprint of the already-imported GPG key; empty if none was found.
+GPG_FINGERPRINT=$_Q_gpg_fpr
+
+ZSH_AS_DEFAULT=$_det_zsh
+
+USE_UV=$_det_uv
+
+INSTALL_VSCODE=$_det_vscode
+INSTALL_FONTS=$_det_fonts
+INSTALL_KITTY=$_det_kitty
+INSTALL_PODMAN=$_det_podman
+INSTALL_RUST=$_det_rust
+INSTALL_RUST_WASM=$_det_rust_wasm
+INSTALL_RUST_NIGHTLY=$_det_rust_nightly
+INSTALL_CROSS=$_det_cross
+INSTALL_TYPST=$_det_typst
+INSTALL_NODEJS=$_det_nodejs
+REBUILT_CONF
+
+    info "~/.setup.conf rebuilt from detected system state."
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -225,10 +338,11 @@ cat > "$OUTPUT" <<'HEADER'
 #   1. Detects platform, installs prerequisites (git, gnupg, dialog)
 #   2. Restores GPG secret key  → imports into keyring
 #   3. Restores SSH keys        → copies to ~/.ssh with correct permissions
-#   4. Writes ~/.setup.conf     → pre-fills all install settings
-#   5. Restores live dotfiles   → ~/.zshrc, ~/.tmux.conf, ~/.config/…
-#   6. Installs VS Code extensions (requires `code` on PATH)
-#   7. Calls setup.sh / install.sh for the full unattended install
+#   4. Prompts to choose which apps to install (dialog checklist)
+#   5. Writes ~/.setup.conf     → pre-fills all install settings
+#   6. Restores live dotfiles   → ~/.zshrc, ~/.tmux.conf, ~/.config/…
+#   7. Installs VS Code extensions (requires `code` on PATH)
+#   8. Calls setup.sh / install.sh for the full unattended install
 
 set -uo pipefail
 
@@ -356,10 +470,115 @@ if [[ -d "$WORK_DIR/dotfiles" ]]; then
     info "Dotfiles restored to $HOME"
 fi
 
-# ── Write ~/.setup.conf ────────────────────────────────────────────────────────
+# ── Customise and write ~/.setup.conf ─────────────────────────────────────────
 if [[ -s "$WORK_DIR/setup.conf" ]]; then
-    ohai "Restoring ~/.setup.conf"
-    cp "$WORK_DIR/setup.conf" "$HOME/.setup.conf"
+    ohai "Customising install options"
+
+    # Save the runtime GPG fingerprint set during import (if any)
+    _RUNTIME_GPG_FPR="${GPG_FINGERPRINT:-}"
+
+    # Load embedded defaults so the checklist reflects the snapshot
+    # shellcheck source=/dev/null
+    source "$WORK_DIR/setup.conf"
+
+    # Prefer the freshly-imported fingerprint over the stale embedded one
+    [[ -n "$_RUNTIME_GPG_FPR" ]] && GPG_FINGERPRINT="$_RUNTIME_GPG_FPR"
+
+    # Helper: map true/false to dialog on/off
+    _on() { ${1:-false} && echo on || echo off; }
+
+    _TMP=$(mktemp)
+    dialog --backtitle "ubuntu-setup restore" \
+        --title " Applications to Install " \
+        --checklist \
+"These are the applications captured in the snapshot.\n\
+Toggle what you want installed on this machine.\n\
+(Space = toggle, Enter = confirm, Esc = keep defaults)" \
+        0 0 13 \
+        "INTERACTIVE"    "Desktop/interactive system"                               "$(_on "${IS_INTERACTIVE:-false}")"      \
+        "ZSH"            "Set zsh as default login shell"                           "$(_on "${ZSH_AS_DEFAULT:-false}")"      \
+        "UV"             "uv Python backend (instead of Miniconda)"                 "$(_on "${USE_UV:-false}")"              \
+        "VSCODE"         "VS Code editor"                                           "$(_on "${INSTALL_VSCODE:-false}")"      \
+        "FONTS"          "Nerd Fonts (CascadiaCode, Meslo)"                         "$(_on "${INSTALL_FONTS:-false}")"       \
+        "KITTY"          "Kitty terminal emulator"                                  "$(_on "${INSTALL_KITTY:-false}")"       \
+        "PODMAN"         "Podman (container engine)"                                "$(_on "${INSTALL_PODMAN:-false}")"      \
+        "RUST"           "Rust toolchain (rustup)"                                  "$(_on "${INSTALL_RUST:-false}")"        \
+        "RUST_WASM"      "  +- WASM target (wasm32-unknown)"                        "$(_on "${INSTALL_RUST_WASM:-false}")"   \
+        "RUST_NIGHTLY"   "  +- Nightly toolchain"                                   "$(_on "${INSTALL_RUST_NIGHTLY:-false}")" \
+        "CROSS"          "  +- Cross (needs Podman + Rust)"                         "$(_on "${INSTALL_CROSS:-false}")"       \
+        "TYPST"          "  +- Typst document compiler"                             "$(_on "${INSTALL_TYPST:-false}")"       \
+        "NODEJS"         "Node.js LTS (via nvm)"                                    "$(_on "${INSTALL_NODEJS:-false}")"      \
+        2>"$_TMP"
+    _rc=$?
+    _SEL=$(cat "$_TMP"); rm -f "$_TMP"
+    clear
+
+    if [[ $_rc -eq 0 ]]; then
+        # User confirmed — apply selections
+        _sel() { echo "$_SEL" | grep -qw "$1"; }
+
+        IS_INTERACTIVE=false;       _sel INTERACTIVE  && IS_INTERACTIVE=true
+        ZSH_AS_DEFAULT=false;       _sel ZSH          && ZSH_AS_DEFAULT=true
+        USE_UV=false;               _sel UV           && USE_UV=true
+        INSTALL_VSCODE=false;       _sel VSCODE       && INSTALL_VSCODE=true
+        INSTALL_FONTS=false;        _sel FONTS        && INSTALL_FONTS=true
+        INSTALL_KITTY=false;        _sel KITTY        && INSTALL_KITTY=true
+        INSTALL_PODMAN=false;       _sel PODMAN       && INSTALL_PODMAN=true
+        INSTALL_RUST=false;         _sel RUST         && INSTALL_RUST=true
+        INSTALL_RUST_WASM=false;    _sel RUST_WASM    && INSTALL_RUST_WASM=true
+        INSTALL_RUST_NIGHTLY=false; _sel RUST_NIGHTLY && INSTALL_RUST_NIGHTLY=true
+        INSTALL_CROSS=false;        _sel CROSS        && INSTALL_CROSS=true
+        INSTALL_TYPST=false;        _sel TYPST        && INSTALL_TYPST=true
+        INSTALL_NODEJS=false;       _sel NODEJS       && INSTALL_NODEJS=true
+
+        # Rust sub-items automatically pull in the Rust toolchain
+        if { $INSTALL_RUST_WASM || $INSTALL_RUST_NIGHTLY || $INSTALL_TYPST; } && ! $INSTALL_RUST; then
+            INSTALL_RUST=true
+        fi
+        # Cross requires Podman + Rust — auto-enable both
+        if $INSTALL_CROSS; then
+            INSTALL_PODMAN=true
+            INSTALL_RUST=true
+        fi
+
+        info "Install options updated."
+    else
+        info "Checklist cancelled — using snapshot defaults."
+    fi
+
+    ohai "Writing ~/.setup.conf"
+    _Q_hostname=$(printf '%q' "${SETUP_HOSTNAME:-$(hostname)}")
+    _Q_git_name=$(printf '%q' "${GIT_NAME:-}")
+    _Q_git_email=$(printf '%q' "${GIT_EMAIL:-}")
+    _Q_gpg_fpr=$(printf '%q' "${GPG_FINGERPRINT:-}")
+    cat > "$HOME/.setup.conf" <<CONF
+# ubuntu-setup configuration
+# Restored from snapshot on $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+SETUP_HOSTNAME=$_Q_hostname
+IS_INTERACTIVE=$IS_INTERACTIVE
+
+GIT_NAME=$_Q_git_name
+GIT_EMAIL=$_Q_git_email
+
+# Fingerprint of the already-imported GPG key; empty if none was imported.
+GPG_FINGERPRINT=$_Q_gpg_fpr
+
+ZSH_AS_DEFAULT=$ZSH_AS_DEFAULT
+
+USE_UV=$USE_UV
+
+INSTALL_VSCODE=$INSTALL_VSCODE
+INSTALL_FONTS=$INSTALL_FONTS
+INSTALL_KITTY=$INSTALL_KITTY
+INSTALL_PODMAN=$INSTALL_PODMAN
+INSTALL_RUST=$INSTALL_RUST
+INSTALL_RUST_WASM=$INSTALL_RUST_WASM
+INSTALL_RUST_NIGHTLY=$INSTALL_RUST_NIGHTLY
+INSTALL_CROSS=$INSTALL_CROSS
+INSTALL_TYPST=$INSTALL_TYPST
+INSTALL_NODEJS=$INSTALL_NODEJS
+CONF
     chmod 600 "$HOME/.setup.conf"
     info "~/.setup.conf written"
 fi
