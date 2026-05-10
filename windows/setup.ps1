@@ -70,8 +70,9 @@ trap {
 try {
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction Stop -WarningAction SilentlyContinue
 } catch {
-    Write-Warn "Could not persist execution policy (likely overridden by Group Policy) — continuing."
+    Write-Warn "Could not persist execution policy (likely overridden by Group Policy) - continuing."
 }
+
 
 # ── Script directory ───────────────────────────────────────────────────────────
 $SCRIPT_DIR = if ((Test-Path variable:PSCommandPath) -and $PSCommandPath) { Split-Path -Parent $PSCommandPath } else { $PWD.Path }
