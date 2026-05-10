@@ -25,8 +25,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # -- Re-launch under STA if needed (WinForms requires STA thread) --------------
+# Always use powershell.exe (Windows PowerShell 5.1) which supports -STA.
+# pwsh.exe (PowerShell 7+) does not have an -STA switch.
 if ([System.Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') {
-    $psExe = (Get-Process -Id $PID).MainModule.FileName
+    $psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     & $psExe -NoProfile -ExecutionPolicy Bypass -STA -File $PSCommandPath @args
     exit $LASTEXITCODE
 }
