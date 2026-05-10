@@ -39,8 +39,7 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 )
 if (-not $isAdmin) {
     Write-Host 'Relaunching with Administrator privileges...' -ForegroundColor Cyan
-    $scriptPath = if ($PSCommandPath) { $PSCommandPath }
-                  elseif ($MyInvocation.MyCommand.Path) { $MyInvocation.MyCommand.Path }
+    $scriptPath = if ((Test-Path variable:PSCommandPath) -and $PSCommandPath) { $PSCommandPath }
                   else {
                       # Running via iex — download to a temp file so -File works
                       $tmp = Join-Path $env:TEMP 'ubuntu-setup-windows.ps1'
@@ -59,7 +58,7 @@ if (-not $isAdmin) {
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
 
 # ── Script directory ───────────────────────────────────────────────────────────
-$SCRIPT_DIR = if ($PSCommandPath) { Split-Path -Parent $PSCommandPath } else { $PWD.Path }
+$SCRIPT_DIR = if ((Test-Path variable:PSCommandPath) -and $PSCommandPath) { Split-Path -Parent $PSCommandPath } else { $PWD.Path }
 Push-Location $SCRIPT_DIR
 
 # ── Windows build validation ───────────────────────────────────────────────────
