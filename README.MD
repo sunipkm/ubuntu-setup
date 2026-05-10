@@ -93,3 +93,8 @@ bash -i -c "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/
 - [Podman](https://podman.io/) (optional) — container runtime.
 - [`cross`](https://github.com/cross-rs/cross) (optional, requires Rust + Podman) — cross-compilation tool.
 - Dotfiles copied to `~/`.
+
+### Testing
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/windows/setup.ps1 | iex
+```
