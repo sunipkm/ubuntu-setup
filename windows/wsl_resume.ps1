@@ -36,7 +36,15 @@ $ErrorActionPreference = 'Stop'
 function Write-Step { param([string]$m) Write-Host "==> $m" -ForegroundColor Blue }
 function Write-Info { param([string]$m) Write-Host "INFO: $m" -ForegroundColor Cyan }
 function Write-Warn { param([string]$m) Write-Host "[WARN] $m" -ForegroundColor Yellow }
-function Abort      { param([string]$m) Write-Host $m -ForegroundColor Red; exit 1 }
+function Abort      { param([string]$m) Write-Host $m -ForegroundColor Red; Read-Host "`nPress Enter to close"; exit 1 }
+
+# -- Global error trap - keeps the window open so errors are readable ----------
+trap {
+    Write-Host "`n[ERROR] $_" -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor DarkGray
+    Read-Host "`nPress Enter to close"
+    exit 1
+}
 
 # -- Require admin --------------------------------------------------------------
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(

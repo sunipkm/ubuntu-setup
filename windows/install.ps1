@@ -285,11 +285,20 @@ Add-Member -InputObject $cfgObj -MemberType NoteProperty -Name 'Phase' -Value 'w
 $cfgObj | ConvertTo-Json -Depth 4 | Set-Content $ConfigFile -Encoding UTF8
 
 # -- Locate wsl_resume.ps1 -----------------------------------------------------
-$WSL_RESUME = Join-Path $SCRIPT_DIR 'wsl_resume.ps1'
-$RAW_BASE   = 'https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/windows'
-if (-not (Test-Path $WSL_RESUME)) {
+# IMPORTANT: never store these in $env:TEMP - that path differs between the
+# elevated install session and the scheduled task session after reboot, and
+# temp folders may be purged.  Use $env:ProgramData\ubuntu-setup instead.
+$RAW_BASE    = 'https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/windows'
+$PERSIST_DIR = Join-Path $env:ProgramData 'ubuntu-setup'
+New-Item -ItemType Directory -Path $PERSIST_DIR -Force | Out-Null
+
+# wsl_resume.ps1
+$WSL_RESUME_SRC = Join-Path $SCRIPT_DIR 'wsl_resume.ps1'
+$WSL_RESUME     = Join-Path $PERSIST_DIR 'wsl_resume.ps1'
+if (Test-Path $WSL_RESUME_SRC) {
+    Copy-Item $WSL_RESUME_SRC $WSL_RESUME -Force
+} else {
     Write-Info "Downloading wsl_resume.ps1..."
-    $WSL_RESUME = Join-Path $env:TEMP 'wsl_resume.ps1'
     try {
         Invoke-WebRequest -Uri "$RAW_BASE/wsl_resume.ps1" -OutFile $WSL_RESUME -UseBasicParsing
     } catch {
@@ -297,17 +306,20 @@ if (-not (Test-Path $WSL_RESUME)) {
     }
 }
 
-# Also ensure wsl_bootstrap.sh is present alongside wsl_resume.ps1
-$WSL_BOOTSTRAP = Join-Path $SCRIPT_DIR 'wsl_bootstrap.sh'
-if (-not (Test-Path $WSL_BOOTSTRAP)) {
+# wsl_bootstrap.sh
+$WSL_BOOTSTRAP_SRC = Join-Path $SCRIPT_DIR 'wsl_bootstrap.sh'
+$WSL_BOOTSTRAP     = Join-Path $PERSIST_DIR 'wsl_bootstrap.sh'
+if (Test-Path $WSL_BOOTSTRAP_SRC) {
+    Copy-Item $WSL_BOOTSTRAP_SRC $WSL_BOOTSTRAP -Force
+} else {
     Write-Info "Downloading wsl_bootstrap.sh..."
-    $WSL_BOOTSTRAP = Join-Path $env:TEMP 'wsl_bootstrap.sh'
     try {
         Invoke-WebRequest -Uri "$RAW_BASE/wsl_bootstrap.sh" -OutFile $WSL_BOOTSTRAP -UseBasicParsing
     } catch {
         Write-Warn "Failed to download wsl_bootstrap.sh: $_"
     }
 }
+Write-Info "Scripts staged to: $PERSIST_DIR"
 
 # Store wsl_resume and bootstrap paths into config so wsl_resume.ps1 can find them
 $cfgObj2 = Get-Content $ConfigFile -Raw | ConvertFrom-Json
@@ -324,10 +336,10 @@ Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Silent
 
 $action = New-ScheduledTaskAction `
     -Execute 'powershell.exe' `
-    -Argument ("-ExecutionPolicy Bypass -NoProfile -WindowStyle Normal " +
+    -Argument ("-ExecutionPolicy Bypass -NoProfile -NoExit -WindowStyle Normal " +
                "-File `"$WSL_RESUME`" -ConfigFile `"$ConfigFile`"")
 
-# Trigger: at logon of the current (non-elevated) user
+# Trigger: at logon of the current (non-elevated) user.
 # We identify the real logged-on user because this script runs elevated.
 # Get-CimInstance is preferred over the deprecated Get-WmiObject.
 $loggedOnUser = $null
@@ -335,18 +347,33 @@ try {
     $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
     if ($cs.UserName) { $loggedOnUser = $cs.UserName }
 } catch { }
-if (-not $loggedOnUser) {
-    # Fallback: for local accounts use .\username to avoid WORKGROUP\username
-    if ($env:USERDOMAIN -eq $env:COMPUTERNAME) {
-        $loggedOnUser = ".\$env:USERNAME"
-    } else {
-        $loggedOnUser = "$env:USERDOMAIN\$env:USERNAME"
+
+# Normalise to bare username for local accounts.
+# Task Scheduler accepts domain\user for domain accounts but expects just
+# the SAM name (or COMPUTERNAME\user) for local accounts. Using the bare
+# SAM name works for both when combined with LogonType Interactive.
+if ($loggedOnUser) {
+    # Strip any domain/machine prefix from local accounts
+    if ($loggedOnUser -match '^([^\\]+)\\(.+)$') {
+        $domainPart = $Matches[1]
+        $userPart   = $Matches[2]
+        if ($domainPart -eq $env:COMPUTERNAME) {
+            $loggedOnUser = $userPart   # local account: use bare username
+        }
+        # else: domain account - keep full DOMAIN\user
     }
+} else {
+    $loggedOnUser = $env:USERNAME
 }
 Write-Info "Scheduling task for user: $loggedOnUser"
 
 $trigger   = New-ScheduledTaskTrigger -AtLogOn -User $loggedOnUser
-$principal = New-ScheduledTaskPrincipal -UserId $loggedOnUser -RunLevel Highest
+# LogonType Interactive: task fires when the user logs on interactively.
+# This is required for AtLogOn tasks on local user accounts without stored
+# credentials. RunLevel Highest requests elevation; for admin accounts this
+# works without a UAC prompt. wsl_resume.ps1 also self-elevates as fallback.
+$principal = New-ScheduledTaskPrincipal -UserId $loggedOnUser `
+    -LogonType Interactive -RunLevel Highest
 # Note: omit -DisallowDemandStart; it is a [switch] and passing $false without
 # a colon (-DisallowDemandStart:$false) corrupts parameter binding in PS 5.1.
 $settings  = New-ScheduledTaskSettingsSet `
@@ -361,7 +388,12 @@ Register-ScheduledTask `
     -Settings  $settings `
     -Force | Out-Null
 
-Write-Info "Scheduled task '$taskName' registered."
+# Verify the task was actually registered and its status is sane
+$regTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+if (-not $regTask) {
+    Abort "Scheduled task '$taskName' could not be verified after registration."
+}
+Write-Info "Scheduled task '$taskName' registered (State: $($regTask.State), User: $loggedOnUser)."
 
 # -- Countdown and reboot -------------------------------------------------------
 Write-Host ''
@@ -381,4 +413,20 @@ Write-Host ''
     Cleanup
 }
 
-Restart-Computer -Force
+# Use shutdown.exe directly - more reliable than Restart-Computer across all
+# Windows editions and execution contexts (Group Policy, hypervisors, etc.).
+# /r = reboot, /f = force-close apps, /t 0 = no delay.
+Write-Info "Initiating system reboot via shutdown.exe..."
+$shutdownResult = & "$env:SystemRoot\System32\shutdown.exe" /r /f /t 5 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Warn "shutdown.exe failed (exit $LASTEXITCODE): $shutdownResult"
+    Write-Warn "Falling back to Restart-Computer..."
+    try {
+        Restart-Computer -Force -ErrorAction Stop
+    } catch {
+        Write-Host "[ERROR] Could not initiate reboot: $_" -ForegroundColor Red
+        Write-Host "Please reboot manually to complete WSL setup." -ForegroundColor Yellow
+        Read-Host "`nPress Enter to close"
+        exit 1
+    }
+}
