@@ -249,6 +249,57 @@ wsl -d $WslDistro -u $WslUsername -- bash -c "cp '$wslTmpConf' ~/.setup.conf && 
 Remove-Item $tmpConf -Force -ErrorAction SilentlyContinue
 Write-Info "~/.setup.conf written."
 
+# -- 10a. Import GPG secret key into WSL ---------------------------------------
+Write-Step "Importing GPG secret key into WSL..."
+
+$gpgKeyPath = ''
+if (($cfg.PSObject.Properties['GpgKeyStaged']) -and $cfg.GpgKeyStaged -and (Test-Path $cfg.GpgKeyStaged)) {
+    $gpgKeyPath = $cfg.GpgKeyStaged
+} elseif ($cfg.GpgKeyFile -and (Test-Path $cfg.GpgKeyFile)) {
+    $gpgKeyPath = $cfg.GpgKeyFile
+}
+
+if ($gpgKeyPath) {
+    $wslGpgPath = (wsl -d $WslDistro -- wslpath -u ($gpgKeyPath -replace '\\', '/')) | Out-String
+    $wslGpgPath = $wslGpgPath.Trim()
+    wsl -d $WslDistro -u $WslUsername -- bash -c "gpg --batch --import '$wslGpgPath' 2>&1" 2>&1 | Out-Null
+    # Mark the key with ultimate trust so it is usable immediately without prompts
+    if ($cfg.GpgFingerprint) {
+        $fp = $cfg.GpgFingerprint
+        wsl -d $WslDistro -u $WslUsername -- bash -c "printf '%s:6:\n' '$fp' | gpg --import-ownertrust 2>&1" 2>&1 | Out-Null
+    }
+    Write-Info "GPG secret key imported."
+} else {
+    Write-Warn "No GPG key file found - skipping GPG import."
+    Write-Warn "To import manually inside WSL:  gpg --import <your-key.asc>"
+}
+
+# -- 10b. Copy SSH keys from Windows into WSL ----------------------------------
+Write-Step "Copying SSH keys from Windows into WSL..."
+
+$winSshDir = Join-Path $env:USERPROFILE '.ssh'
+if (Test-Path $winSshDir) {
+    # Exclude Windows-only files: shortcuts, PuTTY .ppk, known_hosts.old backup
+    $sshFiles = Get-ChildItem -Path $winSshDir -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -notin @('.lnk', '.ppk') -and $_.Name -ne 'known_hosts.old' }
+    if ($sshFiles.Count -gt 0) {
+        wsl -d $WslDistro -u $WslUsername -- bash -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh' 2>&1 | Out-Null
+        foreach ($f in $sshFiles) {
+            $wslSrc = (wsl -d $WslDistro -- wslpath -u ($f.FullName -replace '\\', '/')) | Out-String
+            $wslSrc = $wslSrc.Trim()
+            # Public files -> 644, private key files -> 600
+            $mode = if ($f.Name -match '\.pub$' -or $f.Name -in @('known_hosts', 'config', 'authorized_keys')) { '644' } else { '600' }
+            wsl -d $WslDistro -u $WslUsername -- bash -c "cp '$wslSrc' ~/.ssh/$($f.Name) && chmod $mode ~/.ssh/$($f.Name)" 2>&1 | Out-Null
+            Write-Info "  $($f.Name)  (chmod $mode)"
+        }
+        Write-Info "Copied $($sshFiles.Count) SSH file(s) to WSL ~/.ssh."
+    } else {
+        Write-Info "No files found in Windows .ssh directory; skipping."
+    }
+} else {
+    Write-Info "No Windows .ssh directory (~/.ssh) found; skipping SSH key copy."
+}
+
 # -- 11. Copy and run wsl_bootstrap.sh inside WSL ------------------------------
 Write-Step "Running Linux bootstrap inside WSL..."
 

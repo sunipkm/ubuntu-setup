@@ -146,9 +146,14 @@ if ($cfg.IsInteractive) {
             foreach ($ext in $exts) {
                 $i++
                 Write-Progress -Activity "Installing VS Code extensions" -Status $ext -PercentComplete (($i / $total) * 100)
-                $out = & cmd /c "`"$codePath`" --install-extension $ext --force" 2>&1
-                if ($LASTEXITCODE -ne 0) {
-                    Write-Warn "Extension failed to install (skipping): $ext"
+                try {
+                    $out = & cmd /c "`"$codePath`" --install-extension $ext --force" 2>&1
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-Warn "Extension failed to install (skipping): $ext"
+                        $failed.Add($ext)
+                    }
+                } catch {
+                    Write-Warn "Extension failed to install (skipping): $ext - $_"
                     $failed.Add($ext)
                 }
             }
@@ -257,12 +262,20 @@ public static class FontInstaller {
 }
 
 # -- WSL ------------------------------------------------------------------------
-Write-Step "Enabling Windows Subsystem for Linux..."
+Write-Step "Checking Windows Subsystem for Linux..."
 
-$wslFeature = Get-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' -ErrorAction SilentlyContinue
-$wslEnabled  = $wslFeature -and $wslFeature.State -eq 'Enabled'
+# 'wsl --status' exits 0 only when WSL is installed and the kernel is usable.
+# This covers both legacy (DISM feature) and modern (Store / wsl --install) paths.
+$wslFunctional = $false
+try {
+    $null = wsl --status 2>&1
+    $wslFunctional = ($LASTEXITCODE -eq 0)
+} catch { }
 
-if (-not $wslEnabled) {
+if ($wslFunctional) {
+    Write-Info "WSL is already installed and functional - skipping feature enablement."
+} else {
+    Write-Step "Enabling Windows Subsystem for Linux..."
     if ($osBuild -ge 19041) {
         Write-Info "Using 'wsl --install' (Build $osBuild >= 19041)..."
         # --no-distribution: enables WSL + VM Platform without installing a distro yet
@@ -275,8 +288,6 @@ if (-not $wslEnabled) {
             -All -NoRestart -ErrorAction SilentlyContinue | Out-Null
         Write-Warn "Build $osBuild supports WSL 1 only.  Update to Windows 10 2004+ for WSL 2."
     }
-} else {
-    Write-Info "WSL feature already enabled; skipping."
 }
 
 # -- Save phase into config -----------------------------------------------------
@@ -319,13 +330,41 @@ if (Test-Path $WSL_BOOTSTRAP_SRC) {
         Write-Warn "Failed to download wsl_bootstrap.sh: $_"
     }
 }
+
+# GPG secret key - stage it now so it survives across reboots and session changes.
+# The original file may be on removable media that won't be present after reboot.
+$GPG_KEY_STAGED = ''
+if ($cfg.GpgKeyFile -and (Test-Path $cfg.GpgKeyFile)) {
+    $GPG_KEY_STAGED = Join-Path $PERSIST_DIR 'gpg-secret-key.asc'
+    Copy-Item $cfg.GpgKeyFile $GPG_KEY_STAGED -Force
+    Write-Info "GPG key staged to: $GPG_KEY_STAGED"
+} elseif ($cfg.GpgKeyFile) {
+    Write-Warn "GpgKeyFile '$($cfg.GpgKeyFile)' not found; GPG key will not be imported into WSL."
+}
+
 Write-Info "Scripts staged to: $PERSIST_DIR"
 
-# Store wsl_resume and bootstrap paths into config so wsl_resume.ps1 can find them
+# Store paths into config so wsl_resume.ps1 can find them
+# (done before the functional check so the paths are recorded either way)
 $cfgObj2 = Get-Content $ConfigFile -Raw | ConvertFrom-Json
-Add-Member -InputObject $cfgObj2 -MemberType NoteProperty -Name 'WslResumeScript'    -Value $WSL_RESUME    -Force
-Add-Member -InputObject $cfgObj2 -MemberType NoteProperty -Name 'WslBootstrapScript' -Value $WSL_BOOTSTRAP -Force
+Add-Member -InputObject $cfgObj2 -MemberType NoteProperty -Name 'WslResumeScript'    -Value $WSL_RESUME       -Force
+Add-Member -InputObject $cfgObj2 -MemberType NoteProperty -Name 'WslBootstrapScript' -Value $WSL_BOOTSTRAP    -Force
+Add-Member -InputObject $cfgObj2 -MemberType NoteProperty -Name 'GpgKeyStaged'       -Value $GPG_KEY_STAGED   -Force
 $cfgObj2 | ConvertTo-Json -Depth 4 | Set-Content $ConfigFile -Encoding UTF8
+
+# -- If WSL was already functional, run wsl_resume directly (no reboot needed) --
+if ($wslFunctional) {
+    Write-Step "WSL already present - running post-install steps now (no reboot required)..."
+    $resumeProc = Start-Process powershell -ArgumentList @(
+        '-ExecutionPolicy', 'Bypass', '-NoProfile', '-NoExit',
+        '-File', "`"$WSL_RESUME`"",
+        '-ConfigFile', "`"$ConfigFile`""
+    ) -PassThru -Wait
+    if ($resumeProc.ExitCode -ne 0) {
+        Abort "WSL post-install failed (exit code $($resumeProc.ExitCode))."
+    }
+    exit 0   # triggers finally { Cleanup }; skips task registration and reboot
+}
 
 # -- Register post-reboot scheduled task ----------------------------------------
 Write-Step "Registering post-reboot scheduled task (ubuntu-setup-wsl-resume)..."
