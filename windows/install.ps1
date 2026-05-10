@@ -139,16 +139,25 @@ if ($cfg.IsInteractive) {
         }
 
         if (Test-Path $extFile) {
-            $exts = Get-Content $extFile | Where-Object { $_.Trim() -ne '' }
+            $exts = Get-Content $extFile | Where-Object { $_.Trim() -ne '' -and -not $_.TrimStart().StartsWith('#') }
             $total = $exts.Count
             $i = 0
+            $failed = [System.Collections.Generic.List[string]]::new()
             foreach ($ext in $exts) {
                 $i++
                 Write-Progress -Activity "Installing VS Code extensions" -Status $ext -PercentComplete (($i / $total) * 100)
-                & cmd /c "`"$codePath`" --install-extension $ext --force" 2>&1 | Out-Null
+                $out = & cmd /c "`"$codePath`" --install-extension $ext --force" 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Warn "Extension failed to install (skipping): $ext"
+                    $failed.Add($ext)
+                }
             }
             Write-Progress -Activity "Installing VS Code extensions" -Completed
-            Write-Info "Installed $total extensions."
+            $succeeded = $total - $failed.Count
+            Write-Info "Extensions: $succeeded/$total installed successfully."
+            if ($failed.Count -gt 0) {
+                Write-Warn "Failed extensions ($($failed.Count)): $($failed -join ', ')"
+            }
         }
     } else {
         Write-Warn "VS Code install failed or code.cmd not found.  Skipping extensions."
