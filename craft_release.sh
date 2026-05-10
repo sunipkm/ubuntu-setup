@@ -31,6 +31,12 @@ if ! command -v gh &>/dev/null; then
     exit 1
 fi
 
+# Fail if there are uncommitted changes
+if ! git -C "$PDIR" diff --quiet || ! git -C "$PDIR" diff --cached --quiet; then
+    echo "Error: There are uncommitted changes. Commit or stash them before crafting a release."
+    exit 1
+fi
+
 # Delete existing local tag if present
 if git -C "$PDIR" tag | grep -qx "$RELEASE_TAG"; then
     echo "Local tag $RELEASE_TAG already exists — deleting..."

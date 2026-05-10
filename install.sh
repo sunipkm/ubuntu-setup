@@ -619,12 +619,14 @@ if [[ "$USE_UV" == true ]]; then
         curl -LsSf https://astral.sh/uv/install.sh | sh
         export PATH="$HOME/.local/bin:$PATH"
     fi
-    if ! UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.uvpython3" uv python find 3.13 2>/dev/null); then
-        uv python install 3.13 --install-dir "$HOME/.uvpython3" --default
-        UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.uvpython3" uv python find 3.13)
+    if ! UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.local/uvpython" uv python find 3.13 2>/dev/null); then
+        uv python install 3.13 --install-dir "$HOME/.local/uvpython" --default
+        UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.local/uvpython" uv python find 3.13)
     fi
-    export PATH="$(dirname "$UV_PYTHON"):$PATH"
-    PIP_INSTALL="uv pip install --python $UV_PYTHON"
+    UV_VENV="$HOME/.uvpython3"
+    uv venv "$UV_VENV" --python "$UV_PYTHON"
+    export PATH="$UV_VENV/bin:$PATH"
+    PIP_INSTALL="uv pip install --python $UV_VENV"
 else
     if [[ ! -f "$HOME/.miniconda3/bin/activate" ]]; then
         if DEBIAN || ARCHLINUX || FEDORA; then MINICONDA_INSTALLER="Miniconda3-latest-Linux-${ARCH}.sh"

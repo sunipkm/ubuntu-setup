@@ -277,10 +277,8 @@ else
     _git_top=$(git rev-parse --show-superproject-working-tree --show-toplevel 2>/dev/null | head -1)
     if [[ -n "$_git_top" && -f "$_git_top/.venv/bin/activate" ]]; then
         source "$_git_top/.venv/bin/activate"
-    elif [[ -d "$HOME/.uvpython3" ]]; then
-        _uv_bins=("$HOME"/.uvpython3/*/bin)
-        [[ -d "${_uv_bins[1]}" ]] && export PATH="${_uv_bins[1]}:$PATH"
-        unset _uv_bins
+    elif [[ -f "$HOME/.uvpython3/bin/activate" ]]; then
+        source "$HOME/.uvpython3/bin/activate"
     else
         source "$HOME/.miniconda3/bin/activate"
     fi

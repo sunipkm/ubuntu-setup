@@ -866,15 +866,17 @@ if $USE_UV; then
     else
         info "uv is already installed"
     fi
-    if ! UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.uvpython3" uv python find 3.13 2>/dev/null); then
+    if ! UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.local/uvpython" uv python find 3.13 2>/dev/null); then
         info "Installing Python 3.13 via uv..."
-        uv python install 3.13 --install-dir "$HOME/.uvpython3" --default
-        UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.uvpython3" uv python find 3.13)
+        uv python install 3.13 --install-dir "$HOME/.local/uvpython" --default
+        UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.local/uvpython" uv python find 3.13)
     else
         info "Python 3.13 (uv) is already installed at $UV_PYTHON"
     fi
-    export PATH="$(dirname "$UV_PYTHON"):$PATH"
-    PIP_INSTALL="uv pip install --python $UV_PYTHON --system"
+    UV_VENV="$HOME/.uvpython3"
+    uv venv "$UV_VENV" --python "$UV_PYTHON"
+    export PATH="$UV_VENV/bin:$PATH"
+    PIP_INSTALL="uv pip install --python $UV_VENV"
 else
     if ! [ -f "$HOME/.miniconda3/bin/activate" ]; then
         info "Installing python..."
