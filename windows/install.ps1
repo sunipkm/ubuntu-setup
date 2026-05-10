@@ -262,33 +262,42 @@ public static class FontInstaller {
 }
 
 # -- WSL ------------------------------------------------------------------------
-Write-Step "Checking Windows Subsystem for Linux..."
+Write-Step "Enabling Windows Subsystem for Linux features..."
 
-# 'wsl --status' exits 0 only when WSL is installed and the kernel is usable.
-# This covers both legacy (DISM feature) and modern (Store / wsl --install) paths.
-$wslFunctional = $false
-try {
-    $null = wsl --status 2>&1
-    $wslFunctional = ($LASTEXITCODE -eq 0)
-} catch { }
+# Always check and enable both features individually via DISM/Enable-WindowsOptionalFeature.
+# This is reliable across all Windows editions and network environments, unlike
+# 'wsl --install' which depends on the Microsoft Store / Windows Update.
+# Enable-WindowsOptionalFeature is idempotent - it is safe to run when already enabled.
 
-if ($wslFunctional) {
-    Write-Info "WSL is already installed and functional - skipping feature enablement."
+$wslFeature = Get-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' -ErrorAction SilentlyContinue
+if (-not $wslFeature -or $wslFeature.State -ne 'Enabled') {
+    Write-Info "Enabling Microsoft-Windows-Subsystem-Linux..."
+    Enable-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' `
+        -All -NoRestart -ErrorAction SilentlyContinue | Out-Null
 } else {
-    Write-Step "Enabling Windows Subsystem for Linux..."
-    if ($osBuild -ge 19041) {
-        Write-Info "Using 'wsl --install' (Build $osBuild >= 19041)..."
-        # --no-distribution: enables WSL + VM Platform without installing a distro yet
-        wsl --install --no-distribution 2>&1 | Out-Null
-    } else {
-        Write-Info "Enabling WSL features via DISM (Build $osBuild < 19041 - WSL 1 only)..."
-        Enable-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' `
-            -All -NoRestart -ErrorAction SilentlyContinue | Out-Null
+    Write-Info "Microsoft-Windows-Subsystem-Linux: already enabled."
+}
+
+if ($osBuild -ge 19041) {
+    $vmFeature = Get-WindowsOptionalFeature -Online -FeatureName 'VirtualMachinePlatform' -ErrorAction SilentlyContinue
+    if (-not $vmFeature -or $vmFeature.State -ne 'Enabled') {
+        Write-Info "Enabling VirtualMachinePlatform (required for WSL 2)..."
         Enable-WindowsOptionalFeature -Online -FeatureName 'VirtualMachinePlatform' `
             -All -NoRestart -ErrorAction SilentlyContinue | Out-Null
-        Write-Warn "Build $osBuild supports WSL 1 only.  Update to Windows 10 2004+ for WSL 2."
+    } else {
+        Write-Info "VirtualMachinePlatform: already enabled."
     }
+} else {
+    Write-Warn "Build $osBuild is below 19041 - VirtualMachinePlatform not available (WSL 1 only)."
 }
+
+# Check if WSL kernel is already functional. If so, skip the reboot path later.
+$wslFunctional = $false
+try {
+    $null = & "$env:SystemRoot\System32\wsl.exe" --status 2>&1
+    $wslFunctional = ($LASTEXITCODE -eq 0)
+} catch { }
+Write-Info "WSL kernel functional: $wslFunctional"
 
 # -- Save phase into config -----------------------------------------------------
 $cfgObj = Get-Content $ConfigFile -Raw | ConvertFrom-Json

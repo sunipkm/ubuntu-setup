@@ -5,13 +5,19 @@
     Equivalent to setup.sh on Linux/macOS.
 
 .DESCRIPTION
-    1. Self-elevates to Administrator.
-    2. Validates Windows build (>=17763 / Win 10 1809).
-    3. Ensures winget is available.
-    4. Installs Git for Windows.
-    5. Locates or downloads configure.ps1 and install.ps1 from the repo.
-    6. Runs the WinForms configuration wizard (configure.ps1).
-    7. Launches the unattended installer (install.ps1).
+    Phase 1 (initial run):
+      1. Self-elevates to Administrator.
+      2. Validates Windows build (>=17763 / Win 10 1809).
+      3. Ensures winget is available.
+      4. Installs Git for Windows.
+      5. Locates or downloads configure.ps1 and install.ps1 from the repo.
+      6. Enables WSL Windows features (DISM - no Store required).
+      7. Registers a post-reboot scheduled task to run Phase 2.
+      8. Reboots.
+
+    Phase 2 (auto-runs after reboot via scheduled task, -Resume flag):
+      1. Runs the WinForms configuration wizard (configure.ps1).
+      2. Launches the unattended installer (install.ps1).
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\setup.ps1
@@ -22,7 +28,10 @@
 #>
 
 [CmdletBinding()]
-param()
+param(
+    # Internal flag: set when the script is re-launched after the WSL-feature reboot.
+    [switch]$Resume
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -46,12 +55,9 @@ if (-not $isAdmin) {
                       Invoke-RestMethod 'https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/windows/setup.ps1' -OutFile $tmp
                       $tmp
                   }
-    $proc = Start-Process powershell -ArgumentList @(
-        '-ExecutionPolicy', 'Bypass',
-        '-NoProfile',
-        '-NoExit',
-        '-File', "`"$scriptPath`""
-    ) -Verb RunAs -PassThru -Wait
+    $args = @('-ExecutionPolicy','Bypass','-NoProfile','-NoExit','-File',"`"$scriptPath`"")
+    if ($Resume) { $args += '-Resume' }
+    $proc = Start-Process powershell -ArgumentList $args -Verb RunAs -PassThru -Wait
     exit $proc.ExitCode
 }
 
@@ -156,38 +162,139 @@ function Get-SiblingScript {
 $CONFIGURE_PS1 = Get-SiblingScript 'configure.ps1'
 $INSTALL_PS1   = Get-SiblingScript 'install.ps1'
 
-# -- Configuration wizard -------------------------------------------------------
-$CONFIG_FILE = Join-Path $env:USERPROFILE '.setup-windows.json'
-Write-Step "Launching configuration wizard..."
+# =============================================================================
+# Phase 2 -- runs after reboot (setup.ps1 -Resume, called by scheduled task)
+# =============================================================================
+if ($Resume) {
+    # Remove the scheduled task now that we're running it
+    Unregister-ScheduledTask -TaskName 'UbuntuSetupResume' -Confirm:$false -ErrorAction SilentlyContinue
 
-$confProc = Start-Process powershell -ArgumentList @(
-    '-ExecutionPolicy', 'Bypass',
-    '-NoProfile',
-    '-STA',
-    '-File', "`"$CONFIGURE_PS1`"",
-    '-ConfigFile', "`"$CONFIG_FILE`""
-) -PassThru -Wait
+    # -- Configuration wizard --------------------------------------------------
+    $CONFIG_FILE = Join-Path $env:USERPROFILE '.setup-windows.json'
+    Write-Step "Launching configuration wizard..."
 
-if ($confProc.ExitCode -ne 0) {
-    Abort "Configuration wizard was cancelled or failed (exit code $($confProc.ExitCode))."
+    $confProc = Start-Process powershell -ArgumentList @(
+        '-ExecutionPolicy', 'Bypass',
+        '-NoProfile',
+        '-STA',
+        '-File', "`"$CONFIGURE_PS1`"",
+        '-ConfigFile', "`"$CONFIG_FILE`""
+    ) -PassThru -Wait
+
+    if ($confProc.ExitCode -ne 0) {
+        Abort "Configuration wizard was cancelled or failed (exit code $($confProc.ExitCode))."
+    }
+    if (-not (Test-Path $CONFIG_FILE)) {
+        Abort "Configuration was not saved.  Re-run setup.ps1 to try again."
+    }
+
+    # -- Launch installer (elevated) -------------------------------------------
+    Write-Step "Launching installer..."
+    $instProc = Start-Process powershell -ArgumentList @(
+        '-ExecutionPolicy', 'Bypass',
+        '-NoProfile',
+        '-NoExit',
+        '-File', "`"$INSTALL_PS1`"",
+        '-ConfigFile', "`"$CONFIG_FILE`""
+    ) -Verb RunAs -PassThru -Wait
+
+    if ($instProc.ExitCode -ne 0) {
+        Abort "Installer failed (exit code $($instProc.ExitCode)).  Check output above for details."
+    }
+
+    Pop-Location
+    Write-Step "Setup complete!"
+    exit 0
 }
-if (-not (Test-Path $CONFIG_FILE)) {
-    Abort "Configuration was not saved.  Re-run setup.ps1 to try again."
+
+# =============================================================================
+# Phase 1 -- first run: enable WSL features, register resume task, reboot
+# =============================================================================
+
+# -- Enable WSL features -------------------------------------------------------
+Write-Step "Enabling WSL Windows features (reboot will follow)..."
+
+$wslFeature = Get-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' -ErrorAction SilentlyContinue
+if (-not $wslFeature -or $wslFeature.State -ne 'Enabled') {
+    Write-Info "Enabling Microsoft-Windows-Subsystem-Linux..."
+    Enable-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' `
+        -All -NoRestart -ErrorAction SilentlyContinue | Out-Null
+} else {
+    Write-Info "Microsoft-Windows-Subsystem-Linux: already enabled."
 }
 
-# -- Launch installer (elevated) ------------------------------------------------
-Write-Step "Launching installer..."
-$instProc = Start-Process powershell -ArgumentList @(
-    '-ExecutionPolicy', 'Bypass',
-    '-NoProfile',
-    '-NoExit',
-    '-File', "`"$INSTALL_PS1`"",
-    '-ConfigFile', "`"$CONFIG_FILE`""
-) -Verb RunAs -PassThru -Wait
-
-if ($instProc.ExitCode -ne 0) {
-    Abort "Installer failed (exit code $($instProc.ExitCode)).  Check output above for details."
+if ($osBuild -ge 19041) {
+    $vmFeature = Get-WindowsOptionalFeature -Online -FeatureName 'VirtualMachinePlatform' -ErrorAction SilentlyContinue
+    if (-not $vmFeature -or $vmFeature.State -ne 'Enabled') {
+        Write-Info "Enabling VirtualMachinePlatform (required for WSL 2)..."
+        Enable-WindowsOptionalFeature -Online -FeatureName 'VirtualMachinePlatform' `
+            -All -NoRestart -ErrorAction SilentlyContinue | Out-Null
+    } else {
+        Write-Info "VirtualMachinePlatform: already enabled."
+    }
+} else {
+    Write-Warn "Build $osBuild is below 19041 - VirtualMachinePlatform not available (WSL 1 only)."
 }
+
+# -- Stage setup.ps1 to ProgramData so the scheduled task survives the reboot --
+$stageDir = 'C:\ProgramData\ubuntu-setup'
+New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+
+$stagedSetup = Join-Path $stageDir 'setup.ps1'
+Copy-Item -Path $CONFIGURE_PS1 -Destination (Join-Path $stageDir 'configure.ps1') -Force
+Copy-Item -Path $INSTALL_PS1   -Destination (Join-Path $stageDir 'install.ps1')   -Force
+
+# If running from a local file, copy that; otherwise use the temp download.
+$srcSetup = if ((Test-Path variable:PSCommandPath) -and $PSCommandPath) { $PSCommandPath } else { $MyInvocation.MyCommand.Path }
+Copy-Item -Path $srcSetup -Destination $stagedSetup -Force
+
+# -- Register post-reboot scheduled task ----------------------------------------
+Write-Step "Registering resume task (UbuntuSetupResume)..."
+
+$whoami = (Get-CimInstance Win32_ComputerSystem).UserName  # e.g. MACHINE\user
+$samUser = if ($whoami -match '\\(.+)$') { $Matches[1] } else { $whoami }
+
+$action  = New-ScheduledTaskAction `
+    -Execute "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" `
+    -Argument "-ExecutionPolicy Bypass -NoProfile -NoExit -File `"$stagedSetup`" -Resume"
+
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $samUser
+
+$settings = New-ScheduledTaskSettingsSet `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -StartWhenAvailable
+
+$principal = New-ScheduledTaskPrincipal `
+    -UserId $samUser `
+    -LogonType Interactive `
+    -RunLevel Highest
+
+Register-ScheduledTask `
+    -TaskName   'UbuntuSetupResume' `
+    -Action     $action `
+    -Trigger    $trigger `
+    -Settings   $settings `
+    -Principal  $principal `
+    -Force | Out-Null
+
+# Verify it registered
+if (-not (Get-ScheduledTask -TaskName 'UbuntuSetupResume' -ErrorAction SilentlyContinue)) {
+    Abort "Failed to register scheduled task 'UbuntuSetupResume'."
+}
+Write-Info "Scheduled task registered.  It will run setup.ps1 -Resume after reboot."
+
+# -- Reboot ---------------------------------------------------------------------
+Write-Host ''
+Write-Host "Windows features enabled.  The system will reboot in 10 seconds." -ForegroundColor Yellow
+Write-Host "After login, the configuration wizard will open automatically."   -ForegroundColor Yellow
+Write-Host "Press Ctrl+C to abort the reboot if needed."                       -ForegroundColor Yellow
+Write-Host ''
 
 Pop-Location
-Write-Step "Setup complete!  The system will reboot shortly to finish WSL installation."
+
+try {
+    shutdown.exe /r /f /t 10
+} catch {
+    Restart-Computer -Force
+}
