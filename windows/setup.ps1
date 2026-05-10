@@ -31,7 +31,7 @@ $ErrorActionPreference = 'Stop'
 function Write-Step { param([string]$Message) Write-Host "==> $Message" -ForegroundColor Blue }
 function Write-Info { param([string]$Message) Write-Host "INFO: $Message" -ForegroundColor Cyan }
 function Write-Warn { param([string]$Message) Write-Host "[WARN] $Message" -ForegroundColor Yellow }
-function Abort      { param([string]$Message) Write-Host $Message -ForegroundColor Red; exit 1 }
+function Abort      { param([string]$Message) Write-Host $Message -ForegroundColor Red; Read-Host "`nPress Enter to close"; exit 1 }
 
 # ── Self-elevation ─────────────────────────────────────────────────────────────
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -49,9 +49,18 @@ if (-not $isAdmin) {
     $proc = Start-Process powershell -ArgumentList @(
         '-ExecutionPolicy', 'Bypass',
         '-NoProfile',
+        '-NoExit',
         '-File', "`"$scriptPath`""
     ) -Verb RunAs -PassThru -Wait
     exit $proc.ExitCode
+}
+
+# ── Top-level error handler — keeps the window open so errors are readable ─────
+trap {
+    Write-Host "`n[ERROR] $_" -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor DarkGray
+    Read-Host "`nPress Enter to close"
+    exit 1
 }
 
 # ── Execution policy ───────────────────────────────────────────────────────────
