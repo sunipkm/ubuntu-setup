@@ -180,6 +180,7 @@ Write-Step "Launching installer..."
 $instProc = Start-Process powershell -ArgumentList @(
     '-ExecutionPolicy', 'Bypass',
     '-NoProfile',
+    '-NoExit',
     '-File', "`"$INSTALL_PS1`"",
     '-ConfigFile', "`"$CONFIG_FILE`""
 ) -Verb RunAs -PassThru -Wait

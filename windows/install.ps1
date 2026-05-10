@@ -47,7 +47,15 @@ if (-not $isAdmin) {
 function Write-Step { param([string]$m) Write-Host "==> $m" -ForegroundColor Blue }
 function Write-Info { param([string]$m) Write-Host "INFO: $m" -ForegroundColor Cyan }
 function Write-Warn { param([string]$m) Write-Host "[WARN] $m" -ForegroundColor Yellow }
-function Abort      { param([string]$m) Write-Host $m -ForegroundColor Red; exit 1 }
+function Abort      { param([string]$m) Write-Host $m -ForegroundColor Red; Read-Host "`nPress Enter to close"; exit 1 }
+
+# -- Global error trap - keeps the elevated window open so errors are readable --
+trap {
+    Write-Host "`n[ERROR] $_" -ForegroundColor Red
+    Write-Host $_.ScriptStackTrace -ForegroundColor DarkGray
+    Read-Host "`nPress Enter to close"
+    exit 1
+}
 
 # -- Load config ----------------------------------------------------------------
 if (-not (Test-Path $ConfigFile)) {
@@ -311,15 +319,29 @@ $action = New-ScheduledTaskAction `
                "-File `"$WSL_RESUME`" -ConfigFile `"$ConfigFile`"")
 
 # Trigger: at logon of the current (non-elevated) user
-# We identify the real logged-on user because this script runs elevated
-$loggedOnUser = (Get-WmiObject -Class Win32_ComputerSystem -ErrorAction SilentlyContinue).UserName
-if (-not $loggedOnUser) { $loggedOnUser = "$env:USERDOMAIN\$env:USERNAME" }
+# We identify the real logged-on user because this script runs elevated.
+# Get-CimInstance is preferred over the deprecated Get-WmiObject.
+$loggedOnUser = $null
+try {
+    $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction Stop
+    if ($cs.UserName) { $loggedOnUser = $cs.UserName }
+} catch { }
+if (-not $loggedOnUser) {
+    # Fallback: for local accounts use .\username to avoid WORKGROUP\username
+    if ($env:USERDOMAIN -eq $env:COMPUTERNAME) {
+        $loggedOnUser = ".\$env:USERNAME"
+    } else {
+        $loggedOnUser = "$env:USERDOMAIN\$env:USERNAME"
+    }
+}
+Write-Info "Scheduling task for user: $loggedOnUser"
 
-$trigger  = New-ScheduledTaskTrigger -AtLogOn -User $loggedOnUser
+$trigger   = New-ScheduledTaskTrigger -AtLogOn -User $loggedOnUser
 $principal = New-ScheduledTaskPrincipal -UserId $loggedOnUser -RunLevel Highest
+# Note: omit -DisallowDemandStart; it is a [switch] and passing $false without
+# a colon (-DisallowDemandStart:$false) corrupts parameter binding in PS 5.1.
 $settings  = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit (New-TimeSpan -Hours 4) `
-    -DisallowDemandStart $false `
     -RestartCount 0
 
 Register-ScheduledTask `
