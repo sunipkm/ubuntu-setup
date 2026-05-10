@@ -2,29 +2,64 @@
 
 Supports **Debian-based** systems (Ubuntu, Debian, Mint, …) including **WSL**, **Arch Linux**, **Fedora**, and **macOS**.
 
-## Debian / Ubuntu / WSL
+## Quick start (all platforms)
 
-On WSL, VS Code and its extensions are installed on the **Windows** side via `winget`, and fonts are installed into the Windows user font directory.
-
-```sh
-bash -i -c "$(wget -qO- https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/bootstrap.sh)"
-```
-
-## Arch Linux / Fedora
+Run `setup.sh` to launch an interactive configuration wizard and optionally kick off the full installation in one step:
 
 ```sh
-bash -i -c "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/bootstrap.sh)"
+bash -i -c "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/setup.sh)"
 ```
 
-## macOS
-
-[Homebrew](https://brew.sh/) and Xcode command-line tools are installed automatically if missing:
+On Ubuntu/Debian you can also use `wget`:
 
 ```sh
-bash -i -c "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/bootstrap.sh)"
+bash -i -c "$(wget -qO- https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/setup.sh)"
 ```
 
----
+> **WSL note:** VS Code and its extensions are installed on the **Windows** side via `winget`, and fonts are installed into the Windows user font directory.
+
+> **macOS note:** [Homebrew](https://brew.sh/) and Xcode command-line tools are installed automatically if missing.
+
+## Snapshots
+
+`snapshot.sh` captures the current machine's full personalisation into a single self-contained, portable script that can reproduce the setup on a fresh machine.
+
+### What gets bundled
+
+- `~/.setup.conf` — install settings (from `configure.sh`); if absent, the script auto-detects the installed tools and reconstructs it.
+- **GPG secret keys** — exported non-interactively (key is still passphrase-protected; nothing is stored in the clear).
+- **SSH keys** — `id_*`, `*.pub`, `config`, `authorized_keys`, `known_hosts`.
+- **VS Code extensions** — captured via `code --list-extensions`.
+- **Live dotfiles** — `~/.zshrc`, `~/.tmux.conf`, `~/.p10k.zsh`, `~/.nanorc`, `~/.fzf_zsh`, and `~/.config/{kitty,nvim,tmux,lazygit,starship.toml,yazi,…}`.
+- **Optional config files** — any of the following that exist are offered via an interactive checklist (or per-file y/n prompts if `dialog` is unavailable):
+
+  | File | Contents |
+  |---|---|
+  | `~/.pypirc` | PyPI credentials |
+  | `~/.wakatime.cfg` | WakaTime API key / config |
+  | `~/.npmrc` | npm credentials / registry config |
+  | `~/.netrc` | Generic network credentials |
+  | `~/.cargo/credentials.toml` | Cargo registry credentials |
+  | `~/.aws/credentials` | AWS credentials |
+  | `~/.aws/config` | AWS config |
+
+  All optional files are restored with `chmod 600` permissions.
+
+### Creating a snapshot
+
+```sh
+bash snapshot.sh                     # writes ~/snapshot-<hostname>-<date>.sh
+bash snapshot.sh ~/my-snapshot.sh    # custom output path
+```
+
+### Restoring on a fresh machine
+
+Running the generated snapshot script will:
+
+1. Restore GPG and SSH keys.
+2. Write `~/.setup.conf` with all previous settings.
+3. Install VS Code extensions (if `code` is on `PATH`).
+4. Call `setup.sh` → `configure.sh` (pre-answered via environment variables) → `install.sh`.
 
 ## What Gets Installed
 
@@ -94,7 +129,53 @@ bash -i -c "$(curl -fsSL https://raw.githubusercontent.com/sunipkm/ubuntu-setup/
 - [`cross`](https://github.com/cross-rs/cross) (optional, requires Rust + Podman) — cross-compilation tool.
 - Dotfiles copied to `~/`.
 
-### Testing
+---
+
+## Windows (native)
+
+A PowerShell wizard installs a full developer environment on Windows 10 (Build 17763 / 1809) and Windows 11.
+WSL 2 requires Build 19041 (Windows 10 2004) or later.
+
+### Quick start
+
+Open **PowerShell as Administrator** and run:
+
 ```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; irm https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/windows/setup.ps1 | iex
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/windows/setup.ps1 | iex"
 ```
+
+### Installation flow
+
+**Phase 1 — runs immediately:**
+
+1. Self-elevates to Administrator if needed.
+2. Validates the Windows build (>= 17763).
+3. Ensures `winget` (App Installer) is available.
+4. Installs **Git for Windows** via winget.
+5. Enables the **WSL** and **Virtual Machine Platform** Windows optional features (DISM — no Store required).
+6. Stages the setup scripts to `C:\ProgramData\ubuntu-setup\` so they survive the reboot.
+7. Registers a one-shot logon scheduled task (`UbuntuSetupResume`) to continue after reboot.
+8. **Reboots** (10-second countdown, Ctrl+C to cancel).
+
+**Phase 2 — runs automatically after login:**
+
+1. The scheduled task fires `setup.ps1 -Resume` and unregisters itself.
+2. The **WinForms configuration wizard** opens and collects:
+   - Hostname, Git name / email
+   - Optional GPG secret key file
+   - WSL distribution, Linux username & password
+   - Optional components (Rust, Node.js, Podman, …)
+3. The **unattended installer** (`install.ps1`) runs and:
+   - Installs **VS Code** and all extensions from `extensions.txt`.
+   - Installs **Nerd Fonts** (CaskaydiaCove, Meslo LGS) and **Aptos** into the Windows user font directory.
+   - Installs the selected WSL distribution, creates the Linux user, imports GPG key, copies SSH keys.
+   - Runs `wsl_bootstrap.sh` inside WSL to install the full Linux toolchain (same packages as the Linux flow above).
+
+### Requirements
+
+| Requirement | Minimum |
+|---|---|
+| Windows | 10 Build 17763 (1809) |
+| WSL 2 | 10 Build 19041 (2004) |
+| winget | App Installer from the Microsoft Store |
+| PowerShell | 5.1 (built-in `powershell.exe`) |

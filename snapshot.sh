@@ -10,6 +10,12 @@
 #   • Live dotfiles owned by this repo:
 #       ~/.zshrc  ~/.tmux.conf  ~/.p10k.zsh  ~/.nanorc  ~/.fzf_zsh
 #       ~/.config/{kitty,nvim,tmux,lazygit,starship.toml,yazi,…}
+#   • Optional config files    ~/.pypirc, ~/.wakatime.cfg, ~/.npmrc, etc.
+#                              (prompted interactively if found)
+#
+# The payload is encrypted with AES-256 symmetric GPG encryption.
+# You will be prompted for a passphrase; the same passphrase is required
+# when restoring the snapshot on the target machine.
 #
 # Running the generated snapshot script on a fresh machine:
 #   1. Restores GPG key + SSH keys
@@ -288,7 +294,99 @@ if [[ -d "$HOME/Library/Application Support/Code" ]]; then
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 5. VSCODE EXTENSIONS
+# 5. OPTIONAL CONFIG FILES
+# ──────────────────────────────────────────────────────────────────────────────
+ohai "Checking for optional config files"
+
+# Candidate paths and matching human descriptions (keep arrays in sync)
+_OPT_PATHS=(
+    "$HOME/.pypirc"
+    "$HOME/.wakatime.cfg"
+    "$HOME/.npmrc"
+    "$HOME/.netrc"
+    "$HOME/.cargo/credentials.toml"
+    "$HOME/.aws/credentials"
+    "$HOME/.aws/config"
+)
+_OPT_DESCS=(
+    "PyPI credentials"
+    "WakaTime API key / config"
+    "npm credentials / registry config"
+    "Generic network credentials"
+    "Cargo registry credentials"
+    "AWS credentials"
+    "AWS config"
+)
+
+# Collect indices of files that actually exist
+_FOUND_IDX=()
+for _i in "${!_OPT_PATHS[@]}"; do
+    [[ -f "${_OPT_PATHS[$_i]}" ]] && _FOUND_IDX+=("$_i")
+done
+
+EXTRAS_STAGE="$STAGE/extras"
+EXTRAS_COPIED=0
+
+if (( ${#_FOUND_IDX[@]} > 0 )); then
+    if command -v dialog &>/dev/null; then
+        _ITEMS=()
+        for _i in "${_FOUND_IDX[@]}"; do
+            _ITEMS+=("$_i" "${_OPT_DESCS[$_i]}  (${_OPT_PATHS[$_i]##*/})" "on")
+        done
+        _TMP=$(mktemp)
+        dialog --backtitle "ubuntu-setup snapshot" \
+            --title " Optional Config Files " \
+            --checklist \
+"The following personal config files were found.\nSelect which to include in the snapshot.\n(Space = toggle, Enter = confirm, Esc = skip all)" \
+            0 0 "${#_FOUND_IDX[@]}" \
+            "${_ITEMS[@]}" 2>"$_TMP"
+        _rc=$?
+        _SEL=$(cat "$_TMP"); rm -f "$_TMP"
+        clear
+        if [[ $_rc -eq 0 && -n "$_SEL" ]]; then
+            mkdir -p "$EXTRAS_STAGE"
+            for _i in $_SEL; do
+                _path="${_OPT_PATHS[$_i]}"
+                [[ -f "$_path" ]] || continue
+                _rel="${_path#"$HOME/"}"
+                _dst="$EXTRAS_STAGE/$_rel"
+                mkdir -p "$(dirname "$_dst")"
+                cp "$_path" "$_dst"
+                info "  $_path"
+                (( EXTRAS_COPIED++ ))
+            done
+        else
+            info "Skipping optional config files."
+        fi
+    else
+        # Fallback: per-file y/n prompts
+        for _i in "${_FOUND_IDX[@]}"; do
+            _path="${_OPT_PATHS[$_i]}"
+            _desc="${_OPT_DESCS[$_i]}"
+            printf "${tty_bold}Include %s (%s)?${tty_reset} [Y/n] " \
+                "$(basename "$_path")" "$_desc"
+            read -r _ans
+            case "${_ans:-y}" in
+                [nN]*) info "  Skipping $_path" ;;
+                *)
+                    mkdir -p "$EXTRAS_STAGE"
+                    _rel="${_path#"$HOME/"}"
+                    _dst="$EXTRAS_STAGE/$_rel"
+                    mkdir -p "$(dirname "$_dst")"
+                    cp "$_path" "$_dst"
+                    info "  $_path"
+                    (( EXTRAS_COPIED++ ))
+                    ;;
+            esac
+        done
+    fi
+    (( EXTRAS_COPIED > 0 )) && info "Included $EXTRAS_COPIED optional config file(s)."
+else
+    info "No optional config files found; skipping."
+fi
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 6. VSCODE EXTENSIONS
 # ──────────────────────────────────────────────────────────────────────────────
 ohai "Capturing VS Code extensions"
 VSCODE_EXT_FILE="$STAGE/vscode-extensions.txt"
@@ -306,15 +404,50 @@ else
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 6. BUILD THE PAYLOAD
+# 7. ENCRYPTION PASSPHRASE
+# ──────────────────────────────────────────────────────────────────────────────
+ohai "Snapshot encryption"
+printf "The payload contains sensitive data and will be encrypted with AES-256.\n"
+printf "You will need this passphrase to restore the snapshot.\n\n"
+
+SNAP_PASS=""
+while true; do
+    printf "${tty_bold}Enter passphrase:${tty_reset} "
+    read -rs SNAP_PASS; printf "\n"
+    [[ -n "$SNAP_PASS" ]] && break
+    warn "Passphrase must not be empty."
+done
+printf "${tty_bold}Confirm passphrase:${tty_reset} "
+read -rs SNAP_PASS2; printf "\n"
+if [[ "$SNAP_PASS" != "$SNAP_PASS2" ]]; then
+    unset SNAP_PASS SNAP_PASS2
+    abort "Passphrases do not match."
+fi
+unset SNAP_PASS2
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 8. BUILD THE PAYLOAD
 # ──────────────────────────────────────────────────────────────────────────────
 ohai "Building payload archive"
 PAYLOAD_TAR="$WORK_DIR/payload.tar.gz"
+PAYLOAD_ENC="$WORK_DIR/payload.gpg"
 PAYLOAD_B64="$WORK_DIR/payload.b64"
 
 # Paths relative to $STAGE so the archive unpacks cleanly
 (cd "$STAGE" && tar -czf "$PAYLOAD_TAR" .)
-base64 < "$PAYLOAD_TAR" > "$PAYLOAD_B64"
+
+# Encrypt with AES-256 symmetric GPG (passphrase via stdin fd)
+printf '%s' "$SNAP_PASS" | gpg --batch --symmetric \
+    --cipher-algo AES256 \
+    --s2k-digest-algo SHA512 \
+    --s2k-mode 3 \
+    --pinentry-mode loopback \
+    --passphrase-fd 0 \
+    --output "$PAYLOAD_ENC" "$PAYLOAD_TAR" \
+    || abort "GPG encryption failed."
+unset SNAP_PASS
+
+base64 < "$PAYLOAD_ENC" > "$PAYLOAD_B64"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 6. WRITE THE SELF-EXTRACTING SNAPSHOT SCRIPT
@@ -334,15 +467,20 @@ cat > "$OUTPUT" <<'HEADER'
 #
 #   bash <snapshot>.sh
 #
+# The payload is encrypted with AES-256 symmetric GPG encryption.
+# You will be prompted for the passphrase that was set when the snapshot
+# was created.
+#
 # What this does:
 #   1. Detects platform, installs prerequisites (git, gnupg, dialog)
-#   2. Restores GPG secret key  → imports into keyring
-#   3. Restores SSH keys        → copies to ~/.ssh with correct permissions
-#   4. Prompts to choose which apps to install (dialog checklist)
-#   5. Writes ~/.setup.conf     → pre-fills all install settings
-#   6. Restores live dotfiles   → ~/.zshrc, ~/.tmux.conf, ~/.config/…
-#   7. Installs VS Code extensions (requires `code` on PATH)
-#   8. Calls setup.sh / install.sh for the full unattended install
+#   2. Decrypts and extracts the encrypted payload (passphrase required)
+#   3. Restores GPG secret key  → imports into keyring
+#   4. Restores SSH keys        → copies to ~/.ssh with correct permissions
+#   5. Prompts to choose which apps to install (dialog checklist)
+#   6. Writes ~/.setup.conf     → pre-fills all install settings
+#   7. Restores live dotfiles   → ~/.zshrc, ~/.tmux.conf, ~/.config/…
+#   8. Installs VS Code extensions (requires `code` on PATH)
+#   9. Calls setup.sh / install.sh for the full unattended install
 
 set -uo pipefail
 
@@ -417,8 +555,12 @@ WORK_DIR=$(mktemp -d)
 cleanup() { rm -rf "$WORK_DIR"; }
 trap cleanup EXIT
 
-ohai "Extracting payload"
-tail -n +"$SCRIPT_END" "$0" | base64 -d | tar -xz -C "$WORK_DIR"
+ohai "Decrypting and extracting payload"
+printf "Enter the passphrase that was set when this snapshot was created.\n"
+tail -n +"$SCRIPT_END" "$0" | base64 -d \
+    | gpg --batch --decrypt --pinentry-mode loopback \
+    | tar -xz -C "$WORK_DIR" \
+    || abort "Decryption failed — wrong passphrase or corrupted snapshot."
 
 # ── Restore GPG key ────────────────────────────────────────────────────────────
 if [[ -f "$WORK_DIR/gpg-secret.asc" ]]; then
@@ -468,6 +610,19 @@ if [[ -d "$WORK_DIR/dotfiles" ]]; then
     ohai "Restoring dotfiles"
     rsync -a --no-times "$WORK_DIR/dotfiles/" "$HOME/"
     info "Dotfiles restored to $HOME"
+fi
+
+# ── Restore optional config files ────────────────────────────────────────────
+if [[ -d "$WORK_DIR/extras" ]]; then
+    ohai "Restoring optional config files"
+    while IFS= read -r -d '' _src; do
+        _rel="${_src#"$WORK_DIR/extras/"}"
+        _dst="$HOME/$_rel"
+        mkdir -p "$(dirname "$_dst")"
+        cp "$_src" "$_dst"
+        chmod 600 "$_dst"
+        info "  $HOME/$_rel"
+    done < <(find "$WORK_DIR/extras" -type f -print0)
 fi
 
 # ── Customise and write ~/.setup.conf ─────────────────────────────────────────
