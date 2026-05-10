@@ -39,7 +39,14 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 )
 if (-not $isAdmin) {
     Write-Host 'Relaunching with Administrator privileges...' -ForegroundColor Cyan
-    $scriptPath = if ($PSCommandPath) { $PSCommandPath } else { $MyInvocation.MyCommand.Path }
+    $scriptPath = if ($PSCommandPath) { $PSCommandPath }
+                  elseif ($MyInvocation.MyCommand.Path) { $MyInvocation.MyCommand.Path }
+                  else {
+                      # Running via iex — download to a temp file so -File works
+                      $tmp = Join-Path $env:TEMP 'ubuntu-setup-windows.ps1'
+                      Invoke-RestMethod 'https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/windows/setup.ps1' -OutFile $tmp
+                      $tmp
+                  }
     $proc = Start-Process powershell -ArgumentList @(
         '-ExecutionPolicy', 'Bypass',
         '-NoProfile',
