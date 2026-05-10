@@ -30,7 +30,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Require admin ──────────────────────────────────────────────────────────────
+# -- Require admin --------------------------------------------------------------
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator
 )
@@ -43,13 +43,13 @@ if (-not $isAdmin) {
     exit $proc.ExitCode
 }
 
-# ── Colour helpers ─────────────────────────────────────────────────────────────
+# -- Colour helpers -------------------------------------------------------------
 function Write-Step { param([string]$m) Write-Host "==> $m" -ForegroundColor Blue }
 function Write-Info { param([string]$m) Write-Host "INFO: $m" -ForegroundColor Cyan }
 function Write-Warn { param([string]$m) Write-Host "[WARN] $m" -ForegroundColor Yellow }
 function Abort      { param([string]$m) Write-Host $m -ForegroundColor Red; exit 1 }
 
-# ── Load config ────────────────────────────────────────────────────────────────
+# -- Load config ----------------------------------------------------------------
 if (-not (Test-Path $ConfigFile)) {
     Abort "Config file not found: $ConfigFile`nRun configure.ps1 first."
 }
@@ -64,7 +64,7 @@ New-Item -ItemType Directory -Path $WORK_DIR -Force | Out-Null
 function Cleanup { Remove-Item $WORK_DIR -Recurse -Force -ErrorAction SilentlyContinue }
 try {
 
-# ── Hostname ───────────────────────────────────────────────────────────────────
+# -- Hostname -------------------------------------------------------------------
 $desiredHost = $cfg.Hostname.Trim()
 if ($desiredHost -and $desiredHost -ne $env:COMPUTERNAME) {
     Write-Step "Renaming computer to '$desiredHost'..."
@@ -72,7 +72,7 @@ if ($desiredHost -and $desiredHost -ne $env:COMPUTERNAME) {
     Write-Info "Hostname will change after reboot."
 }
 
-# ── Git configuration ──────────────────────────────────────────────────────────
+# -- Git configuration ----------------------------------------------------------
 Write-Step "Configuring git..."
 if (Get-Command git -ErrorAction SilentlyContinue) {
     if ($cfg.GitName)  { git config --global user.name  $cfg.GitName  }
@@ -84,10 +84,10 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
         Write-Info "Git commit signing enabled with key $($cfg.GpgFingerprint)"
     }
 } else {
-    Write-Warn "git not found on PATH — skipping git config."
+    Write-Warn "git not found on PATH - skipping git config."
 }
 
-# ── VS Code ────────────────────────────────────────────────────────────────────
+# -- VS Code --------------------------------------------------------------------
 if ($cfg.IsInteractive) {
     Write-Step "Installing Visual Studio Code..."
 
@@ -147,7 +147,7 @@ if ($cfg.IsInteractive) {
     }
 }
 
-# ── Fonts ──────────────────────────────────────────────────────────────────────
+# -- Fonts ----------------------------------------------------------------------
 if ($cfg.IsInteractive) {
     Write-Step "Installing fonts..."
 
@@ -239,7 +239,7 @@ public static class FontInstaller {
     Write-Info "Font installation complete."
 }
 
-# ── WSL ────────────────────────────────────────────────────────────────────────
+# -- WSL ------------------------------------------------------------------------
 Write-Step "Enabling Windows Subsystem for Linux..."
 
 $wslFeature = Get-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' -ErrorAction SilentlyContinue
@@ -251,7 +251,7 @@ if (-not $wslEnabled) {
         # --no-distribution: enables WSL + VM Platform without installing a distro yet
         wsl --install --no-distribution 2>&1 | Out-Null
     } else {
-        Write-Info "Enabling WSL features via DISM (Build $osBuild < 19041 — WSL 1 only)..."
+        Write-Info "Enabling WSL features via DISM (Build $osBuild < 19041 - WSL 1 only)..."
         Enable-WindowsOptionalFeature -Online -FeatureName 'Microsoft-Windows-Subsystem-Linux' `
             -All -NoRestart -ErrorAction SilentlyContinue | Out-Null
         Enable-WindowsOptionalFeature -Online -FeatureName 'VirtualMachinePlatform' `
@@ -262,12 +262,12 @@ if (-not $wslEnabled) {
     Write-Info "WSL feature already enabled; skipping."
 }
 
-# ── Save phase into config ─────────────────────────────────────────────────────
+# -- Save phase into config -----------------------------------------------------
 $cfgObj = Get-Content $ConfigFile -Raw | ConvertFrom-Json
 Add-Member -InputObject $cfgObj -MemberType NoteProperty -Name 'Phase' -Value 'wsl-enabled' -Force
 $cfgObj | ConvertTo-Json -Depth 4 | Set-Content $ConfigFile -Encoding UTF8
 
-# ── Locate wsl_resume.ps1 ─────────────────────────────────────────────────────
+# -- Locate wsl_resume.ps1 -----------------------------------------------------
 $WSL_RESUME = Join-Path $SCRIPT_DIR 'wsl_resume.ps1'
 $RAW_BASE   = 'https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/windows'
 if (-not (Test-Path $WSL_RESUME)) {
@@ -298,7 +298,7 @@ Add-Member -InputObject $cfgObj2 -MemberType NoteProperty -Name 'WslResumeScript
 Add-Member -InputObject $cfgObj2 -MemberType NoteProperty -Name 'WslBootstrapScript' -Value $WSL_BOOTSTRAP -Force
 $cfgObj2 | ConvertTo-Json -Depth 4 | Set-Content $ConfigFile -Encoding UTF8
 
-# ── Register post-reboot scheduled task ────────────────────────────────────────
+# -- Register post-reboot scheduled task ----------------------------------------
 Write-Step "Registering post-reboot scheduled task (ubuntu-setup-wsl-resume)..."
 
 $taskName = 'ubuntu-setup-wsl-resume'
@@ -332,12 +332,12 @@ Register-ScheduledTask `
 
 Write-Info "Scheduled task '$taskName' registered."
 
-# ── Countdown and reboot ───────────────────────────────────────────────────────
+# -- Countdown and reboot -------------------------------------------------------
 Write-Host ''
-Write-Host '═══════════════════════════════════════════════════════' -ForegroundColor Cyan
+Write-Host '=======================================================' -ForegroundColor Cyan
 Write-Host '  WSL has been enabled.  A reboot is required.' -ForegroundColor Yellow
 Write-Host '  After reboot, the setup will continue automatically.' -ForegroundColor Yellow
-Write-Host '═══════════════════════════════════════════════════════' -ForegroundColor Cyan
+Write-Host '=======================================================' -ForegroundColor Cyan
 Write-Host ''
 
 for ($s = 10; $s -ge 1; $s--) {

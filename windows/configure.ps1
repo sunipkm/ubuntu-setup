@@ -1,4 +1,5 @@
 #Requires -Version 5.1
+#Requires -STA
 <#
 .SYNOPSIS
     WinForms configuration wizard for the Windows ubuntu-setup port.
@@ -24,13 +25,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Load WinForms ──────────────────────────────────────────────────────────────
+# -- Load WinForms --------------------------------------------------------------
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 [System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 
-# ── Helper: create a Label ─────────────────────────────────────────────────────
+# -- Helper: create a Label -----------------------------------------------------
 function New-Label {
     param([string]$Text, [int]$X, [int]$Y, [int]$W = 520, [int]$H = 22,
           [float]$FontSize = 9.0, [System.Drawing.FontStyle]$Style = 'Regular')
@@ -43,7 +44,7 @@ function New-Label {
     return $lbl
 }
 
-# ── Helper: create a TextBox ───────────────────────────────────────────────────
+# -- Helper: create a TextBox ---------------------------------------------------
 function New-TextBox {
     param([string]$Text = '', [int]$X, [int]$Y, [int]$W = 500, [bool]$Password = $false)
     $tb = New-Object System.Windows.Forms.TextBox
@@ -54,7 +55,7 @@ function New-TextBox {
     return $tb
 }
 
-# ── Get available WSL distros ──────────────────────────────────────────────────
+# -- Get available WSL distros --------------------------------------------------
 function Get-WslDistros {
     $fallback = @('Ubuntu-24.04','Ubuntu-22.04','Ubuntu-20.04','Ubuntu','Debian')
     try {
@@ -77,10 +78,10 @@ function Get-WslDistros {
     return $fallback
 }
 
-# ── WSL distro list (fetched once) ────────────────────────────────────────────
+# -- WSL distro list (fetched once) --------------------------------------------
 $availableDistros = Get-WslDistros
 
-# ── Storage for collected values ───────────────────────────────────────────────
+# -- Storage for collected values -----------------------------------------------
 $cfg = @{
     Phase              = 'configured'
     Hostname           = $env:COMPUTERNAME
@@ -105,11 +106,11 @@ $cfg = @{
     ConfigFile         = $ConfigFile
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # Wizard form
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 $form = New-Object System.Windows.Forms.Form
-$form.Text            = 'ubuntu-setup — Windows Configuration Wizard'
+$form.Text            = 'ubuntu-setup - Windows Configuration Wizard'
 $form.Size            = New-Object System.Drawing.Size(620, 560)
 $form.StartPosition   = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
@@ -163,9 +164,9 @@ $btnNext.Size     = New-Object System.Drawing.Size(90, 30)
 $form.AcceptButton = $btnNext
 $form.Controls.Add($btnNext)
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # Page panels
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 $pages      = [System.Collections.ArrayList]::new()
 $pageTitles = [System.Collections.ArrayList]::new()
 $currentPageIdx = 0
@@ -179,7 +180,7 @@ function Add-Page {
     [void]$pageTitles.Add($Title)
 }
 
-# ── Page 0: Welcome ────────────────────────────────────────────────────────────
+# -- Page 0: Welcome ------------------------------------------------------------
 $p0 = New-Object System.Windows.Forms.Panel
 $p0.Controls.Add((New-Label -Text 'Welcome to ubuntu-setup for Windows!' -X 0 -Y 10 -FontSize 12 -Style Bold))
 $p0.Controls.Add((New-Label -Text (
@@ -187,16 +188,16 @@ $p0.Controls.Add((New-Label -Text (
     "  $ConfigFile`n`n" +
     "That file is then passed to install.ps1 for a fully unattended install.`n`n" +
     "What will be configured:`n" +
-    "  • Visual Studio Code + all extensions from extensions.txt`n" +
-    "  • Nerd Fonts (CascadiaCode, Meslo) + Microsoft Aptos fonts`n" +
-    "  • Windows Subsystem for Linux (WSL 2) with your chosen distro`n" +
-    "  • Full Linux developer environment inside WSL (dotfiles, Python,`n" +
+    "  * Visual Studio Code + all extensions from extensions.txt`n" +
+    "  * Nerd Fonts (CascadiaCode, Meslo) + Microsoft Aptos fonts`n" +
+    "  * Windows Subsystem for Linux (WSL 2) with your chosen distro`n" +
+    "  * Full Linux developer environment inside WSL (dotfiles, Python,`n" +
     "    oh-my-zsh, starship, tmux, and more)`n`n" +
     "Click Next to begin."
 ) -X 0 -Y 50 -H 320))
 Add-Page -Title 'Welcome' -Panel $p0
 
-# ── Page 1: Hostname ───────────────────────────────────────────────────────────
+# -- Page 1: Hostname -----------------------------------------------------------
 $p1 = New-Object System.Windows.Forms.Panel
 $p1.Controls.Add((New-Label -Text 'Desired hostname for this machine:' -X 0 -Y 10))
 $p1.Controls.Add((New-Label -Text '(Leave blank to keep current hostname)' -X 0 -Y 32 -FontSize 8.5))
@@ -204,7 +205,7 @@ $p1_tbHostname = New-TextBox -Text $env:COMPUTERNAME -X 0 -Y 58
 $p1.Controls.Add($p1_tbHostname)
 Add-Page -Title 'Hostname' -Panel $p1
 
-# ── Page 2: Git identity ───────────────────────────────────────────────────────
+# -- Page 2: Git identity -------------------------------------------------------
 $p2 = New-Object System.Windows.Forms.Panel
 $p2.Controls.Add((New-Label -Text 'Git user name:' -X 0 -Y 10))
 $p2_tbName = New-TextBox -X 0 -Y 32
@@ -235,7 +236,8 @@ $btnBrowseGpg.Add_Click({
     if ($ofd.ShowDialog() -eq 'OK') {
         $p2_tbGpg.Text = $ofd.FileName
         # Try to import and extract uid
-        $gpgExe = (Get-Command gpg -ErrorAction SilentlyContinue)?.Source
+        $gpgCmd = Get-Command gpg -ErrorAction SilentlyContinue
+        $gpgExe = if ($gpgCmd) { $gpgCmd.Source } else { $null }
         if (-not $gpgExe) {
             foreach ($p in @(
                 "$env:ProgramFiles\Git\usr\bin\gpg.exe",
@@ -266,12 +268,12 @@ $btnBrowseGpg.Add_Click({
 })
 Add-Page -Title 'Git Identity' -Panel $p2
 
-# ── Page 3: System type ────────────────────────────────────────────────────────
+# -- Page 3: System type --------------------------------------------------------
 $p3 = New-Object System.Windows.Forms.Panel
 $p3.Controls.Add((New-Label -Text 'System type:' -X 0 -Y 10))
 $p3.Controls.Add((New-Label -Text (
     "Interactive (desktop/laptop): installs VS Code, Nerd Fonts, and desktop extras.`n" +
-    "Headless (server): core tools only — no GUI applications or fonts."
+    "Headless (server): core tools only - no GUI applications or fonts."
 ) -X 0 -Y 32 -H 48 -FontSize 8.5))
 
 $p3_rbInteractive = New-Object System.Windows.Forms.RadioButton
@@ -282,13 +284,13 @@ $p3_rbInteractive.Checked  = $true
 $p3.Controls.Add($p3_rbInteractive)
 
 $p3_rbHeadless = New-Object System.Windows.Forms.RadioButton
-$p3_rbHeadless.Text     = 'Headless (server — core tools only)'
+$p3_rbHeadless.Text     = 'Headless (server - core tools only)'
 $p3_rbHeadless.Location = New-Object System.Drawing.Point(0, 122)
 $p3_rbHeadless.Size     = New-Object System.Drawing.Size(320, 24)
 $p3.Controls.Add($p3_rbHeadless)
 Add-Page -Title 'System Type' -Panel $p3
 
-# ── Page 4: WSL distro ────────────────────────────────────────────────────────
+# -- Page 4: WSL distro --------------------------------------------------------
 $p4 = New-Object System.Windows.Forms.Panel
 $p4.Controls.Add((New-Label -Text 'Choose WSL Linux distribution:' -X 0 -Y 10))
 $p4.Controls.Add((New-Label -Text (
@@ -305,7 +307,7 @@ $p4_lstDistro.SelectedIndex = 0
 $p4.Controls.Add($p4_lstDistro)
 Add-Page -Title 'WSL Distribution' -Panel $p4
 
-# ── Page 5: WSL credentials ───────────────────────────────────────────────────
+# -- Page 5: WSL credentials ---------------------------------------------------
 $p5 = New-Object System.Windows.Forms.Panel
 $p5.Controls.Add((New-Label -Text 'Linux username (for WSL):' -X 0 -Y 10))
 $p5.Controls.Add((New-Label -Text 'Lowercase letters, digits, hyphens only (e.g. john, dev-user).' -X 0 -Y 32 -FontSize 8.5))
@@ -325,7 +327,7 @@ $p5_lblErr.ForeColor = [System.Drawing.Color]::Red
 $p5.Controls.Add($p5_lblErr)
 Add-Page -Title 'WSL Credentials' -Panel $p5
 
-# ── Page 6: Optional components ───────────────────────────────────────────────
+# -- Page 6: Optional components -----------------------------------------------
 $p6 = New-Object System.Windows.Forms.Panel
 $p6.Controls.Add((New-Label -Text 'Optional components (installed inside WSL):' -X 0 -Y 10))
 
@@ -351,7 +353,7 @@ foreach ($def in $chkDefs) {
 
 $p6.Controls.Add((New-Label -Text 'Python package manager (inside WSL):' -X 0 -Y 234))
 $p6_rbUv = New-Object System.Windows.Forms.RadioButton
-$p6_rbUv.Text     = 'uv  (fast, modern — recommended)'
+$p6_rbUv.Text     = 'uv  (fast, modern - recommended)'
 $p6_rbUv.Location = New-Object System.Drawing.Point(12, 256)
 $p6_rbUv.Size     = New-Object System.Drawing.Size(300, 22)
 $p6_rbUv.Checked  = $true
@@ -365,7 +367,7 @@ $p6.Controls.Add($p6_rbConda)
 
 Add-Page -Title 'Optional Components' -Panel $p6
 
-# ── Page 7: Summary ───────────────────────────────────────────────────────────
+# -- Page 7: Summary -----------------------------------------------------------
 $p7 = New-Object System.Windows.Forms.Panel
 $p7.Controls.Add((New-Label -Text 'Review your configuration:' -X 0 -Y 10))
 
@@ -380,9 +382,9 @@ $p7_tbSummary.BackColor = [System.Drawing.SystemColors]::Window
 $p7.Controls.Add($p7_tbSummary)
 Add-Page -Title 'Summary' -Panel $p7
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 # Navigation logic
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 function Collect-CurrentPage {
     # Harvest values from the currently-visible page before moving away
     switch ($script:currentPageIdx) {
@@ -477,13 +479,13 @@ function Show-Page {
     if ($isLast) { $p7_tbSummary.Text = Build-Summary }
 }
 
-# ── Button handlers ────────────────────────────────────────────────────────────
+# -- Button handlers ------------------------------------------------------------
 $btnNext.Add_Click({
     if (-not (Validate-CurrentPage)) { return }
     Collect-CurrentPage
     $next = $script:currentPageIdx + 1
     if ($next -ge $pages.Count) {
-        # Reached beyond last page → save and close
+        # Reached beyond last page -> save and close
         Save-Config
         $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
         $form.Close()
@@ -503,15 +505,25 @@ $btnCancel.Add_Click({
     $form.Close()
 })
 
-# ── Save config to JSON ────────────────────────────────────────────────────────
+# -- Save config to JSON --------------------------------------------------------
 function Save-Config {
     $json = $script:cfg | ConvertTo-Json -Depth 4
     [System.IO.File]::WriteAllText($script:cfg.ConfigFile, $json, [System.Text.Encoding]::UTF8)
     Write-Host "Configuration saved to: $($script:cfg.ConfigFile)" -ForegroundColor Green
 }
 
-# ── Show first page and run ────────────────────────────────────────────────────
-Show-Page -Index 0
-$result = $form.ShowDialog()
-if ($result -ne [System.Windows.Forms.DialogResult]::OK) { exit 1 }
-exit 0
+# -- Show first page and run ----------------------------------------------------
+try {
+    Show-Page -Index 0
+    $result = $form.ShowDialog()
+    if ($result -ne [System.Windows.Forms.DialogResult]::OK) { exit 1 }
+    exit 0
+} catch {
+    [System.Windows.Forms.MessageBox]::Show(
+        "An unexpected error occurred:`n`n$($_.Exception.Message)`n`n$($_.ScriptStackTrace)",
+        'ubuntu-setup - Error',
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Error
+    ) | Out-Null
+    exit 1
+}

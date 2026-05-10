@@ -32,13 +32,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Colour helpers ─────────────────────────────────────────────────────────────
+# -- Colour helpers -------------------------------------------------------------
 function Write-Step { param([string]$m) Write-Host "==> $m" -ForegroundColor Blue }
 function Write-Info { param([string]$m) Write-Host "INFO: $m" -ForegroundColor Cyan }
 function Write-Warn { param([string]$m) Write-Host "[WARN] $m" -ForegroundColor Yellow }
 function Abort      { param([string]$m) Write-Host $m -ForegroundColor Red; exit 1 }
 
-# ── Require admin ──────────────────────────────────────────────────────────────
+# -- Require admin --------------------------------------------------------------
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator
 )
@@ -51,11 +51,11 @@ if (-not $isAdmin) {
     exit $proc.ExitCode
 }
 
-# ── 1. Unregister this task immediately (run-once guarantee) ───────────────────
+# -- 1. Unregister this task immediately (run-once guarantee) -------------------
 Write-Step "Unregistering scheduled task..."
 Unregister-ScheduledTask -TaskName 'ubuntu-setup-wsl-resume' -Confirm:$false -ErrorAction SilentlyContinue
 
-# ── Load config ────────────────────────────────────────────────────────────────
+# -- Load config ----------------------------------------------------------------
 if (-not (Test-Path $ConfigFile)) {
     Abort "Config file not found: $ConfigFile"
 }
@@ -66,11 +66,11 @@ $WslUsername  = $cfg.WslUsername
 $WslBootstrap = $cfg.WslBootstrapScript
 $osBuild      = [System.Environment]::OSVersion.Version.Build
 
-# ── Update phase ───────────────────────────────────────────────────────────────
+# -- Update phase ---------------------------------------------------------------
 Add-Member -InputObject $cfg -MemberType NoteProperty -Name 'Phase' -Value 'wsl-resume' -Force
 $cfg | ConvertTo-Json -Depth 4 | Set-Content $ConfigFile -Encoding UTF8
 
-# ── 2. WSL kernel update (Windows 10 only, < Build 22000) ─────────────────────
+# -- 2. WSL kernel update (Windows 10 only, < Build 22000) ---------------------
 if ($osBuild -lt 22000) {
     Write-Step "Updating WSL 2 kernel (Windows 10)..."
     try {
@@ -92,7 +92,7 @@ if ($osBuild -lt 22000) {
     }
 }
 
-# ── 3. Set WSL default version ─────────────────────────────────────────────────
+# -- 3. Set WSL default version -------------------------------------------------
 Write-Step "Setting WSL default version to 2..."
 try {
     wsl --set-default-version 2 2>&1 | Out-Null
@@ -101,7 +101,7 @@ try {
     Write-Warn "Could not set WSL default version to 2: $_"
 }
 
-# ── 4. Install WSL distro ──────────────────────────────────────────────────────
+# -- 4. Install WSL distro ------------------------------------------------------
 Write-Step "Installing WSL distro: $WslDistro..."
 
 # Check if already installed
@@ -113,7 +113,7 @@ if ($installed -notmatch [regex]::Escape($WslDistro)) {
     Write-Info "Distro '$WslDistro' is already installed."
 }
 
-# ── 5. Wait for distro to become available ─────────────────────────────────────
+# -- 5. Wait for distro to become available -------------------------------------
 Write-Step "Waiting for '$WslDistro' to be ready..."
 $deadline = (Get-Date).AddMinutes(10)
 $ready    = $false
@@ -133,7 +133,7 @@ Write-Info "Performing initial WSL boot to finish unpacking..."
 wsl -d $WslDistro -u root -- true 2>&1 | Out-Null
 Start-Sleep -Seconds 3
 
-# ── 6. Decrypt WSL password ────────────────────────────────────────────────────
+# -- 6. Decrypt WSL password ----------------------------------------------------
 $WslPassword = ''
 if ($cfg.WslPasswordEncrypted) {
     try {
@@ -146,7 +146,7 @@ if ($cfg.WslPasswordEncrypted) {
     }
 }
 
-# ── 7. Create Linux user ───────────────────────────────────────────────────────
+# -- 7. Create Linux user -------------------------------------------------------
 Write-Step "Creating Linux user '$WslUsername'..."
 
 $userExists = (wsl -d $WslDistro -u root -- id -u $WslUsername 2>&1) -match '^\d+$'
@@ -177,7 +177,7 @@ bash -c '
     wsl -d $WslDistro -u root -- bash -c "echo '${WslUsername}:${WslPassword}' | chpasswd" 2>&1 | Out-Null
 }
 
-# ── 8. Grant passwordless sudo for the installation ────────────────────────────
+# -- 8. Grant passwordless sudo for the installation ----------------------------
 Write-Step "Granting temporary passwordless sudo for installation..."
 # Write sudoers drop-in; works on all distros that ship with sudo
 $sudoersLine = "${WslUsername} ALL=(ALL) NOPASSWD: ALL"
@@ -196,7 +196,7 @@ bash -c '
 '
 "@ 2>&1 | Out-Null
 
-# ── 9. Set default WSL user via /etc/wsl.conf ─────────────────────────────────
+# -- 9. Set default WSL user via /etc/wsl.conf ---------------------------------
 Write-Step "Setting default WSL user to '$WslUsername'..."
 $wslConf = "[user]`ndefault=$WslUsername`n"
 # Use printf to avoid CRLF from echo on some WSL versions
@@ -205,7 +205,7 @@ wsl -d $WslDistro -u root -- bash -c "printf '%s' '$wslConf' > /etc/wsl.conf" 2>
 wsl --terminate $WslDistro 2>&1 | Out-Null
 Start-Sleep -Seconds 2
 
-# ── 10. Write ~/.setup.conf (Bash format) inside WSL ──────────────────────────
+# -- 10. Write ~/.setup.conf (Bash format) inside WSL --------------------------
 Write-Step "Writing Linux config (~/.setup.conf)..."
 
 $gpgFp  = if ($cfg.GpgFingerprint) { $cfg.GpgFingerprint } else { '' }
@@ -233,7 +233,7 @@ $tmpConf = Join-Path $env:TEMP 'ubuntu-setup.conf'
 # Force LF line endings (critical for Bash)
 [System.IO.File]::WriteAllText($tmpConf, ($linuxConf -replace "`r`n", "`n"), [System.Text.Encoding]::UTF8)
 
-# Convert Windows path to WSL path (e.g. C:\Users\... → /mnt/c/Users/...)
+# Convert Windows path to WSL path (e.g. C:\Users\... -> /mnt/c/Users/...)
 $wslTmpConf = (wsl -d $WslDistro -- wslpath -u ($tmpConf -replace '\\', '/')) | Out-String
 $wslTmpConf = $wslTmpConf.Trim()
 
@@ -241,7 +241,7 @@ wsl -d $WslDistro -u $WslUsername -- bash -c "cp '$wslTmpConf' ~/.setup.conf && 
 Remove-Item $tmpConf -Force -ErrorAction SilentlyContinue
 Write-Info "~/.setup.conf written."
 
-# ── 11. Copy and run wsl_bootstrap.sh inside WSL ──────────────────────────────
+# -- 11. Copy and run wsl_bootstrap.sh inside WSL ------------------------------
 Write-Step "Running Linux bootstrap inside WSL..."
 
 if (-not (Test-Path $WslBootstrap)) {
@@ -269,23 +269,23 @@ Write-Info "Starting Linux bootstrap (this may take 10-20 minutes)..."
 # Run in a visible WSL window so the user can see progress
 Start-Process wsl -ArgumentList @('-d', $WslDistro, '-u', $WslUsername, '--', 'bash', '-l', '~/wsl_bootstrap.sh') -Wait
 
-# ── 12. Remove temporary passwordless sudo ─────────────────────────────────────
+# -- 12. Remove temporary passwordless sudo -------------------------------------
 Write-Step "Removing temporary passwordless sudo..."
 wsl -d $WslDistro -u root -- bash -c 'rm -f /etc/sudoers.d/ubuntu-setup-tmp' 2>&1 | Out-Null
 
-# ── 13. Update phase and show completion ───────────────────────────────────────
+# -- 13. Update phase and show completion ---------------------------------------
 $cfgFinal = Get-Content $ConfigFile -Raw | ConvertFrom-Json
 Add-Member -InputObject $cfgFinal -MemberType NoteProperty -Name 'Phase' -Value 'complete' -Force
 $cfgFinal | ConvertTo-Json -Depth 4 | Set-Content $ConfigFile -Encoding UTF8
 
 Write-Host ''
-Write-Host '╔══════════════════════════════════════════════════════════╗' -ForegroundColor Green
-Write-Host '║            ubuntu-setup for Windows — COMPLETE           ║' -ForegroundColor Green
-Write-Host '╠══════════════════════════════════════════════════════════╣' -ForegroundColor Green
-Write-Host "║  WSL distro  : $($WslDistro.PadRight(44))║" -ForegroundColor Green
-Write-Host "║  Linux user  : $($WslUsername.PadRight(44))║" -ForegroundColor Green
-Write-Host '╠══════════════════════════════════════════════════════════╣' -ForegroundColor Green
-Write-Host '║  To open WSL:   wsl                                      ║' -ForegroundColor Green
-Write-Host "║  Or open '$WslDistro' from the Start menu.              ║" -ForegroundColor Green
-Write-Host '╚══════════════════════════════════════════════════════════╝' -ForegroundColor Green
+Write-Host '+==========================================================+' -ForegroundColor Green
+Write-Host '|            ubuntu-setup for Windows - COMPLETE           |' -ForegroundColor Green
+Write-Host '+==========================================================+' -ForegroundColor Green
+Write-Host "|  WSL distro  : $($WslDistro.PadRight(44))|" -ForegroundColor Green
+Write-Host "|  Linux user  : $($WslUsername.PadRight(44))|" -ForegroundColor Green
+Write-Host '+==========================================================+' -ForegroundColor Green
+Write-Host '|  To open WSL:   wsl                                      |' -ForegroundColor Green
+Write-Host "|  Or open '$WslDistro' from the Start menu.              |" -ForegroundColor Green
+Write-Host '+==========================================================+' -ForegroundColor Green
 Write-Host ''

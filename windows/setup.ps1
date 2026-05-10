@@ -27,13 +27,13 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Colour helpers ─────────────────────────────────────────────────────────────
+# -- Colour helpers -------------------------------------------------------------
 function Write-Step { param([string]$Message) Write-Host "==> $Message" -ForegroundColor Blue }
 function Write-Info { param([string]$Message) Write-Host "INFO: $Message" -ForegroundColor Cyan }
 function Write-Warn { param([string]$Message) Write-Host "[WARN] $Message" -ForegroundColor Yellow }
 function Abort      { param([string]$Message) Write-Host $Message -ForegroundColor Red; Read-Host "`nPress Enter to close"; exit 1 }
 
-# ── Self-elevation ─────────────────────────────────────────────────────────────
+# -- Self-elevation -------------------------------------------------------------
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator
 )
@@ -41,7 +41,7 @@ if (-not $isAdmin) {
     Write-Host 'Relaunching with Administrator privileges...' -ForegroundColor Cyan
     $scriptPath = if ((Test-Path variable:PSCommandPath) -and $PSCommandPath) { $PSCommandPath }
                   else {
-                      # Running via iex — download to a temp file so -File works
+                      # Running via iex - download to a temp file so -File works
                       $tmp = Join-Path $env:TEMP 'ubuntu-setup-windows.ps1'
                       Invoke-RestMethod 'https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/windows/setup.ps1' -OutFile $tmp
                       $tmp
@@ -55,7 +55,7 @@ if (-not $isAdmin) {
     exit $proc.ExitCode
 }
 
-# ── Top-level error handler — keeps the window open so errors are readable ─────
+# -- Top-level error handler - keeps the window open so errors are readable -----
 trap {
     Write-Host "`n[ERROR] $_" -ForegroundColor Red
     Write-Host $_.ScriptStackTrace -ForegroundColor DarkGray
@@ -63,7 +63,7 @@ trap {
     exit 1
 }
 
-# ── Execution policy ───────────────────────────────────────────────────────────
+# -- Execution policy -----------------------------------------------------------
 # Wrap in try/catch: Set-ExecutionPolicy throws a terminating SecurityException
 # in PowerShell 5.1 when Group Policy overrides the requested scope, and
 # -ErrorAction SilentlyContinue does not suppress terminating errors there.
@@ -74,11 +74,11 @@ try {
 }
 
 
-# ── Script directory ───────────────────────────────────────────────────────────
+# -- Script directory -----------------------------------------------------------
 $SCRIPT_DIR = if ((Test-Path variable:PSCommandPath) -and $PSCommandPath) { Split-Path -Parent $PSCommandPath } else { $PWD.Path }
 Push-Location $SCRIPT_DIR
 
-# ── Windows build validation ───────────────────────────────────────────────────
+# -- Windows build validation ---------------------------------------------------
 $osBuild = [System.Environment]::OSVersion.Version.Build
 Write-Info "Detected Windows build: $osBuild"
 
@@ -93,7 +93,7 @@ if ($osBuild -lt 19041) {
     Write-Warn "Run 'winget upgrade --all' or use Windows Update to unlock WSL 2."
 }
 
-# ── winget availability ────────────────────────────────────────────────────────
+# -- winget availability --------------------------------------------------------
 Write-Step "Checking winget..."
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Write-Warn "winget (App Installer) was not found."
@@ -106,11 +106,11 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 
 Write-Info "Updating winget source lists..."
-# Only update the 'winget' source — the 'msstore' source can fail with certificate
+# Only update the 'winget' source - the 'msstore' source can fail with certificate
 # errors in VMs, corporate networks, or fresh Windows installs and is not needed here.
 winget source update --name winget 2>&1 | Out-Null
 
-# ── Git for Windows ────────────────────────────────────────────────────────────
+# -- Git for Windows ------------------------------------------------------------
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Step "Installing Git for Windows..."
     winget install --id Git.Git `
@@ -134,7 +134,7 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 }
 Write-Info "Git: $(git --version)"
 
-# ── Locate or download sibling scripts ────────────────────────────────────────
+# -- Locate or download sibling scripts ----------------------------------------
 $RAW_BASE = 'https://raw.githubusercontent.com/sunipkm/ubuntu-setup/master/windows'
 $TMP_DIR  = Join-Path $env:TEMP 'ubuntu-setup-windows'
 New-Item -ItemType Directory -Path $TMP_DIR -Force | Out-Null
@@ -156,7 +156,7 @@ function Get-SiblingScript {
 $CONFIGURE_PS1 = Get-SiblingScript 'configure.ps1'
 $INSTALL_PS1   = Get-SiblingScript 'install.ps1'
 
-# ── Configuration wizard ───────────────────────────────────────────────────────
+# -- Configuration wizard -------------------------------------------------------
 $CONFIG_FILE = Join-Path $env:USERPROFILE '.setup-windows.json'
 Write-Step "Launching configuration wizard..."
 
@@ -175,7 +175,7 @@ if (-not (Test-Path $CONFIG_FILE)) {
     Abort "Configuration was not saved.  Re-run setup.ps1 to try again."
 }
 
-# ── Launch installer (elevated) ────────────────────────────────────────────────
+# -- Launch installer (elevated) ------------------------------------------------
 Write-Step "Launching installer..."
 $instProc = Start-Process powershell -ArgumentList @(
     '-ExecutionPolicy', 'Bypass',
