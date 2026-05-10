@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Craft a release: build the artifact, tag, push, and publish to GitHub
 # the directory of the script
 PDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,7 +43,7 @@ if [[ "$IS_PRERELEASE" == false ]]; then
     git -C "$PDIR" tag -s "$RELEASE_TAG" -m "Release $RELEASE_TAG"
 else
     echo "Creating pre-release tag $RELEASE_TAG..."
-    git -C "$PDIR" tag -a "$RELEASE_TAG" -m "Pre-release $RELEASE_TAG"
+    git -C "$PDIR" -c tag.gpgSign=false tag -a "$RELEASE_TAG" -m "Pre-release $RELEASE_TAG"
 fi
 
 if [[ $? -ne 0 ]]; then

@@ -171,11 +171,11 @@ fi
 ohai "Installing minimal prerequisites..."
 
 if DEBIAN; then
-    $INSTALL git git-lfs gnupg dialog
+    $INSTALL git git-lfs gnupg dialog curl
 elif ARCHLINUX; then
-    $INSTALL git git-lfs gnupg dialog
+    $INSTALL git git-lfs gnupg dialog curl
 elif FEDORA; then
-    $INSTALL git git-lfs gnupg2 dialog
+    $INSTALL git git-lfs gnupg2 dialog curl
 elif MACOS; then
     # git ships with Xcode tools; brew dialog is the TUI toolkit
     $INSTALL dialog
