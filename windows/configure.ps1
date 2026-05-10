@@ -1,5 +1,4 @@
 #Requires -Version 5.1
-#Requires -STA
 <#
 .SYNOPSIS
     WinForms configuration wizard for the Windows ubuntu-setup port.
@@ -24,6 +23,30 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# -- Re-launch under STA if needed (WinForms requires STA thread) --------------
+if ([System.Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') {
+    $psExe = (Get-Process -Id $PID).MainModule.FileName
+    & $psExe -NoProfile -ExecutionPolicy Bypass -STA -File $PSCommandPath @args
+    exit $LASTEXITCODE
+}
+
+# -- Global trap: catches any error before the inner try/catch is reached ------
+trap {
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+        [System.Windows.Forms.MessageBox]::Show(
+            "Fatal error during startup:`n`n$($_.Exception.Message)`n`n$($_.ScriptStackTrace)",
+            'ubuntu-setup - Fatal Error',
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error
+        ) | Out-Null
+    } catch {
+        Write-Host "FATAL: $($_.Exception.Message)" -ForegroundColor Red
+        Read-Host 'Press Enter to exit'
+    }
+    exit 1
+}
 
 # -- Load WinForms --------------------------------------------------------------
 Add-Type -AssemblyName System.Windows.Forms
@@ -513,17 +536,7 @@ function Save-Config {
 }
 
 # -- Show first page and run ----------------------------------------------------
-try {
-    Show-Page -Index 0
-    $result = $form.ShowDialog()
-    if ($result -ne [System.Windows.Forms.DialogResult]::OK) { exit 1 }
-    exit 0
-} catch {
-    [System.Windows.Forms.MessageBox]::Show(
-        "An unexpected error occurred:`n`n$($_.Exception.Message)`n`n$($_.ScriptStackTrace)",
-        'ubuntu-setup - Error',
-        [System.Windows.Forms.MessageBoxButtons]::OK,
-        [System.Windows.Forms.MessageBoxIcon]::Error
-    ) | Out-Null
-    exit 1
-}
+Show-Page -Index 0
+$result = $form.ShowDialog()
+if ($result -ne [System.Windows.Forms.DialogResult]::OK) { exit 1 }
+exit 0
