@@ -64,7 +64,7 @@ trap {
 }
 
 # ── Execution policy ───────────────────────────────────────────────────────────
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
 
 # ── Script directory ───────────────────────────────────────────────────────────
 $SCRIPT_DIR = if ((Test-Path variable:PSCommandPath) -and $PSCommandPath) { Split-Path -Parent $PSCommandPath } else { $PWD.Path }
