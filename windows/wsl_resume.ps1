@@ -74,6 +74,21 @@ $WslUsername  = $cfg.WslUsername
 $WslBootstrap = $cfg.WslBootstrapScript
 $osBuild      = [System.Environment]::OSVersion.Version.Build
 
+# -- Helper: get WSL distro list as clean ASCII strings -----------------------
+# wsl.exe output is UTF-16LE; PowerShell 5.1 often misreads it as ANSI,
+# producing garbage with embedded nulls. Strip null bytes and BOM to get
+# clean, matchable strings.
+function Get-WslDistroList {
+    $raw = (& "$env:SystemRoot\System32\wsl.exe" --list --quiet 2>&1 | Out-String)
+    $raw = $raw -replace '\x00', '' -replace '\ufeff', ''
+    return ($raw -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+}
+
+function Get-WslDistroListVerbose {
+    $raw = (& "$env:SystemRoot\System32\wsl.exe" --list --verbose 2>&1 | Out-String)
+    return ($raw -replace '\x00', '' -replace '\ufeff', '')
+}
+
 # -- Update phase ---------------------------------------------------------------
 Add-Member -InputObject $cfg -MemberType NoteProperty -Name 'Phase' -Value 'wsl-resume' -Force
 $cfg | ConvertTo-Json -Depth 4 | Set-Content $ConfigFile -Encoding UTF8
@@ -112,10 +127,13 @@ try {
 # -- 4. Install WSL distro ------------------------------------------------------
 Write-Step "Installing WSL distro: $WslDistro..."
 
-# Check if already installed
-$installed = (wsl --list --quiet 2>&1) -join "`n"
-if ($installed -notmatch [regex]::Escape($WslDistro)) {
-    wsl --install -d $WslDistro --no-launch 2>&1 | Out-Null
+$installedDistros = Get-WslDistroList
+$alreadyInstalled = $installedDistros | Where-Object { $_ -eq $WslDistro }
+
+if (-not $alreadyInstalled) {
+    Write-Info "Running: wsl --install -d $WslDistro --no-launch"
+    $installOut = & "$env:SystemRoot\System32\wsl.exe" --install -d $WslDistro --no-launch 2>&1
+    Write-Info ($installOut | Out-String).Trim()
     Write-Info "Distro installation initiated."
 } else {
     Write-Info "Distro '$WslDistro' is already installed."
@@ -123,17 +141,27 @@ if ($installed -notmatch [regex]::Escape($WslDistro)) {
 
 # -- 5. Wait for distro to become available -------------------------------------
 Write-Step "Waiting for '$WslDistro' to be ready..."
-$deadline = (Get-Date).AddMinutes(10)
+$deadline = (Get-Date).AddMinutes(15)
 $ready    = $false
+$lastStatus = ''
 while ((Get-Date) -lt $deadline) {
-    $listing = wsl --list --verbose 2>&1 | Out-String
-    if ($listing -match [regex]::Escape($WslDistro)) {
+    $distros = Get-WslDistroList
+    if ($distros -contains $WslDistro) {
         $ready = $true; break
     }
-    Start-Sleep -Seconds 5
+    # Also accept a partial match in verbose output (distro may show as 'Installing')
+    $verbose = Get-WslDistroListVerbose
+    if ($verbose -match [regex]::Escape($WslDistro)) {
+        $ready = $true; break
+    }
+    $status = "Installed: [$($distros -join ', ')]"
+    if ($status -ne $lastStatus) { Write-Info $status; $lastStatus = $status }
+    Start-Sleep -Seconds 8
 }
 if (-not $ready) {
-    Abort "Timed out waiting for '$WslDistro' to appear in WSL.  Run 'wsl --install -d $WslDistro' manually."
+    # Print current WSL state to help diagnose
+    Write-Host (Get-WslDistroListVerbose) -ForegroundColor DarkGray
+    Abort "Timed out waiting for '$WslDistro' to appear in WSL.`nRun 'wsl --install -d $WslDistro' in a new terminal and re-run this script."
 }
 
 # Some distros need an initial boot to finish unpacking before root is accessible

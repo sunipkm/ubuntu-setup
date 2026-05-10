@@ -72,7 +72,6 @@ svelte.svelte-vscode
 tamasfe.even-better-toml
 tcwalther.cython
 theoolee.reader-mode
-theqtcompany.qt-core
 trond-snekvik.gnu-mapfiles
 twxs.cmake
 wakatime.vscode-wakatime
