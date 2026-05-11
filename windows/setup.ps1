@@ -111,6 +111,12 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Abort "Please install App Installer and re-run this script."
 }
 
+# Bypass certificate pinning - must be done in every elevated session before
+# any winget operation to avoid TLS/certificate failures in VMs and corporate
+# networks where intermediate CAs intercept Microsoft Store traffic.
+Write-Info "Enabling winget certificate pinning bypass..."
+winget settings --enable BypassCertificatePinningForMicrosoftStore 2>&1 | Out-Null
+
 Write-Info "Updating winget source lists..."
 # Only update the 'winget' source - the 'msstore' source can fail with certificate
 # errors in VMs, corporate networks, or fresh Windows installs and is not needed here.

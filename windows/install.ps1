@@ -72,6 +72,12 @@ New-Item -ItemType Directory -Path $WORK_DIR -Force | Out-Null
 function Cleanup { Remove-Item $WORK_DIR -Recurse -Force -ErrorAction SilentlyContinue }
 try {
 
+# -- Winget certificate bypass -------------------------------------------------
+# Must be applied in every elevated session before any winget operation to
+# prevent TLS certificate failures in VMs and corporate environments.
+Write-Info "Enabling winget certificate pinning bypass..."
+winget settings --enable BypassCertificatePinningForMicrosoftStore 2>&1 | Out-Null
+
 # -- Hostname -------------------------------------------------------------------
 $desiredHost = $cfg.Hostname.Trim()
 if ($desiredHost -and $desiredHost -ne $env:COMPUTERNAME) {

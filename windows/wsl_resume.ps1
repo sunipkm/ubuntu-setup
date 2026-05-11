@@ -124,7 +124,61 @@ try {
     Write-Warn "Could not set WSL default version to 2: $_"
 }
 
+# -- Helper: resolve distro name against the online catalogue ------------------
+# wsl --install fails silently (or with a confusing error) when the requested
+# distro name is not in the online list.  This function checks availability and
+# falls back to the newest available Ubuntu variant when needed.
+function Resolve-WslDistro {
+    param([string]$Requested)
+
+    try {
+        $raw = & "$env:SystemRoot\System32\wsl.exe" --list --online 2>&1 | Out-String
+        $raw = $raw -replace '\x00', '' -replace '\ufeff', ''
+        $lines = ($raw -split "`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+
+        # Skip preamble lines until we hit the NAME header
+        $headerIdx = -1
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '^NAME') { $headerIdx = $i; break }
+        }
+
+        $available = @()
+        if ($headerIdx -ge 0) {
+            $available = $lines[($headerIdx + 1)..($lines.Count - 1)] |
+                ForEach-Object { ($_ -split '\s{2,}')[0].Trim() } |
+                Where-Object { $_ -ne '' -and $_ -notmatch '^-' }
+        }
+
+        if ($available -contains $Requested) {
+            Write-Info "Distro '$Requested' is available in the online catalogue."
+            return $Requested
+        }
+
+        Write-Warn "Distro '$Requested' was not found in the WSL online catalogue."
+        Write-Info "Available distros: $($available -join ', ')"
+
+        # Prefer the newest Ubuntu variant available
+        $ubuntuCandidates = $available |
+            Where-Object { $_ -match '^Ubuntu' } |
+            Sort-Object -Descending   # lexicographic desc: Ubuntu-24.04 > Ubuntu-22.04
+
+        if ($ubuntuCandidates.Count -gt 0) {
+            $fallback = $ubuntuCandidates[0]
+            Write-Warn "Falling back to '$fallback'."
+            return $fallback
+        }
+
+        # No Ubuntu at all - return original and let wsl --install surface the error
+        Write-Warn "No Ubuntu variant found in online catalogue; proceeding with '$Requested' (may fail)."
+        return $Requested
+    } catch {
+        Write-Warn "Could not query WSL online catalogue: $_  Proceeding with '$Requested'."
+        return $Requested
+    }
+}
+
 # -- 4. Install WSL distro ------------------------------------------------------
+$WslDistro = Resolve-WslDistro -Requested $WslDistro
 Write-Step "Installing WSL distro: $WslDistro..."
 
 $installedDistros = Get-WslDistroList
