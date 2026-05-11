@@ -252,8 +252,8 @@ $stagedSetup = Join-Path $stageDir 'setup.ps1'
 # occurs when the script is already running from $stageDir.
 function Copy-IfDifferent {
     param([string]$Src, [string]$Dst)
-    $s = (Resolve-Path $Src -ErrorAction SilentlyContinue)?.Path
-    $d = (Resolve-Path $Dst -ErrorAction SilentlyContinue)?.Path
+    $s = (Resolve-Path $Src -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path)
+    $d = (Resolve-Path $Dst -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path)
     if ($s -ine $d) { Copy-Item $Src $Dst -Force }
 }
 
