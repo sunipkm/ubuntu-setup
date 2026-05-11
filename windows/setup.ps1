@@ -247,12 +247,22 @@ $stageDir = 'C:\ProgramData\ubuntu-setup'
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
 $stagedSetup = Join-Path $stageDir 'setup.ps1'
-Copy-Item -Path $CONFIGURE_PS1 -Destination (Join-Path $stageDir 'configure.ps1') -Force
-Copy-Item -Path $INSTALL_PS1   -Destination (Join-Path $stageDir 'install.ps1')   -Force
+
+# Guard each copy against the "cannot overwrite item with itself" error that
+# occurs when the script is already running from $stageDir.
+function Copy-IfDifferent {
+    param([string]$Src, [string]$Dst)
+    $s = (Resolve-Path $Src -ErrorAction SilentlyContinue)?.Path
+    $d = (Resolve-Path $Dst -ErrorAction SilentlyContinue)?.Path
+    if ($s -ine $d) { Copy-Item $Src $Dst -Force }
+}
+
+Copy-IfDifferent $CONFIGURE_PS1 (Join-Path $stageDir 'configure.ps1')
+Copy-IfDifferent $INSTALL_PS1   (Join-Path $stageDir 'install.ps1')
 
 # If running from a local file, copy that; otherwise use the temp download.
 $srcSetup = if ((Test-Path variable:PSCommandPath) -and $PSCommandPath) { $PSCommandPath } else { $MyInvocation.MyCommand.Path }
-Copy-Item -Path $srcSetup -Destination $stagedSetup -Force
+Copy-IfDifferent $srcSetup $stagedSetup
 
 # -- Register post-reboot scheduled task ----------------------------------------
 Write-Step "Registering resume task (UbuntuSetupResume)..."

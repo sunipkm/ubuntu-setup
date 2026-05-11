@@ -322,7 +322,11 @@ New-Item -ItemType Directory -Path $PERSIST_DIR -Force | Out-Null
 $WSL_RESUME_SRC = Join-Path $SCRIPT_DIR 'wsl_resume.ps1'
 $WSL_RESUME     = Join-Path $PERSIST_DIR 'wsl_resume.ps1'
 if (Test-Path $WSL_RESUME_SRC) {
-    Copy-Item $WSL_RESUME_SRC $WSL_RESUME -Force
+    # Resolve paths before copying to avoid "cannot overwrite item with itself"
+    # when install.ps1 is already running from PERSIST_DIR.
+    $srcResolved = (Resolve-Path $WSL_RESUME_SRC -ErrorAction SilentlyContinue)?.Path
+    $dstResolved = (Resolve-Path $WSL_RESUME      -ErrorAction SilentlyContinue)?.Path
+    if ($srcResolved -ine $dstResolved) { Copy-Item $WSL_RESUME_SRC $WSL_RESUME -Force }
 } else {
     Write-Info "Downloading wsl_resume.ps1..."
     try {
@@ -336,7 +340,9 @@ if (Test-Path $WSL_RESUME_SRC) {
 $WSL_BOOTSTRAP_SRC = Join-Path $SCRIPT_DIR 'wsl_bootstrap.sh'
 $WSL_BOOTSTRAP     = Join-Path $PERSIST_DIR 'wsl_bootstrap.sh'
 if (Test-Path $WSL_BOOTSTRAP_SRC) {
-    Copy-Item $WSL_BOOTSTRAP_SRC $WSL_BOOTSTRAP -Force
+    $srcB = (Resolve-Path $WSL_BOOTSTRAP_SRC -ErrorAction SilentlyContinue)?.Path
+    $dstB = (Resolve-Path $WSL_BOOTSTRAP      -ErrorAction SilentlyContinue)?.Path
+    if ($srcB -ine $dstB) { Copy-Item $WSL_BOOTSTRAP_SRC $WSL_BOOTSTRAP -Force }
 } else {
     Write-Info "Downloading wsl_bootstrap.sh..."
     try {
