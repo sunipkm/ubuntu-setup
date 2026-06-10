@@ -93,26 +93,36 @@ function Get-WslDistroListVerbose {
 Add-Member -InputObject $cfg -MemberType NoteProperty -Name 'Phase' -Value 'wsl-resume' -Force
 $cfg | ConvertTo-Json -Depth 4 | Set-Content $ConfigFile -Encoding UTF8
 
-# -- 2. WSL kernel update (Windows 10 only, < Build 22000) ---------------------
-if ($osBuild -lt 22000) {
-    Write-Step "Updating WSL 2 kernel (Windows 10)..."
-    try {
-        wsl --update 2>&1 | Out-Null
-        Write-Info "WSL kernel updated via 'wsl --update'."
-    } catch {
-        # Fallback: download the standalone MSI kernel updater
-        Write-Warn "wsl --update failed; attempting standalone kernel MSI..."
-        $msiPath = Join-Path $env:TEMP 'wsl_update_x64.msi'
-        try {
-            Invoke-WebRequest `
-                -Uri 'https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi' `
-                -OutFile $msiPath -UseBasicParsing
-            Start-Process msiexec -ArgumentList "/i `"$msiPath`" /quiet /norestart" -Wait
-            Write-Info "WSL kernel MSI installed."
-        } catch {
-            Write-Warn "WSL kernel update failed: $_.  WSL 2 may not be available."
-        }
+# -- 2. WSL kernel update (all builds) ----------------------------------------
+# "WslRegisterDistribution failed: WSL2 requires an update to its kernel
+# component" can occur on any Windows version when the kernel package is
+# missing or stale.  Always ensure it is up-to-date before installing a distro.
+Write-Step "Installing / upgrading WSL 2 kernel via winget..."
+
+# Bypass certificate pinning in this elevated session before using winget.
+winget settings --enable BypassCertificatePinningForMicrosoftStore 2>&1 | Out-Null
+
+$wslWingetOut = winget install --id Microsoft.WSL `
+    --source winget `
+    --silent `
+    --accept-package-agreements `
+    --accept-source-agreements `
+    2>&1
+$wslWingetStr = ($wslWingetOut | Out-String).Trim()
+Write-Info $wslWingetStr
+
+if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189) {
+    # -1978335189 (0x8A150011) = "No applicable upgrade found" / already at latest - not a real error
+    Write-Warn "winget install Microsoft.WSL exited with code $LASTEXITCODE; trying wsl --update as fallback..."
+    $wslUpdateOut = & "$env:SystemRoot\System32\wsl.exe" --update --web-download 2>&1
+    $wslUpdateStr = ($wslUpdateOut | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $wslUpdateStr -match 'unknown option|Invalid argument') {
+        & "$env:SystemRoot\System32\wsl.exe" --update 2>&1 | Out-Null
+    } else {
+        Write-Info $wslUpdateStr
     }
+} else {
+    Write-Info "WSL 2 kernel is up-to-date."
 }
 
 # -- 3. Set WSL default version -------------------------------------------------
@@ -177,6 +187,53 @@ function Resolve-WslDistro {
     }
 }
 
+# -- Helper: map distro name to a direct rootfs download URL ------------------
+# Used as a fallback when wsl --install hangs waiting for the Store/WU.
+function Get-RootfsUrl {
+    param([string]$Distro)
+    $map = @{
+        'Ubuntu-24.04' = 'https://cloud-images.ubuntu.com/wsl/releases/24.04/current/ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz'
+        'Ubuntu-22.04' = 'https://cloud-images.ubuntu.com/wsl/releases/22.04/current/ubuntu-jammy-wsl-amd64-wsl.rootfs.tar.gz'
+        'Ubuntu-20.04' = 'https://cloud-images.ubuntu.com/wsl/releases/20.04/current/ubuntu-focal-wsl-amd64-wsl.rootfs.tar.gz'
+        'Ubuntu'       = 'https://cloud-images.ubuntu.com/wsl/releases/24.04/current/ubuntu-noble-wsl-amd64-wsl.rootfs.tar.gz'
+        'Debian'       = 'https://cloud-images.ubuntu.com/wsl/releases/22.04/current/ubuntu-jammy-wsl-amd64-wsl.rootfs.tar.gz'
+    }
+    # Exact match first, then prefix match (e.g. "Ubuntu-24.04.1" -> Ubuntu-24.04)
+    if ($map.ContainsKey($Distro)) { return $map[$Distro] }
+    foreach ($key in ($map.Keys | Sort-Object -Descending)) {
+        if ($Distro -like "$key*") { return $map[$key] }
+    }
+    return $null
+}
+
+# -- Helper: install distro via direct rootfs download + wsl --import ----------
+function Install-WslDistroViaRootfs {
+    param([string]$Distro)
+    $url = Get-RootfsUrl -Distro $Distro
+    if (-not $url) {
+        Write-Warn "No direct rootfs URL known for '$Distro'; cannot use fallback method."
+        return $false
+    }
+
+    $installDir = Join-Path $env:ProgramData "ubuntu-setup\wsl\$Distro"
+    New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+
+    $rootfsTar = Join-Path $env:TEMP "$Distro-rootfs.tar.gz"
+    Write-Info "Downloading rootfs from $url ..."
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $rootfsTar -UseBasicParsing -ErrorAction Stop
+    } catch {
+        Write-Warn "Rootfs download failed: $_"
+        return $false
+    }
+
+    Write-Info "Importing '$Distro' via wsl --import..."
+    $importOut = & "$env:SystemRoot\System32\wsl.exe" --import $Distro $installDir $rootfsTar --version 2 2>&1
+    Write-Info ($importOut | Out-String).Trim()
+    Remove-Item $rootfsTar -Force -ErrorAction SilentlyContinue
+    return ($LASTEXITCODE -eq 0)
+}
+
 # -- 4. Install WSL distro ------------------------------------------------------
 $WslDistro = Resolve-WslDistro -Requested $WslDistro
 Write-Step "Installing WSL distro: $WslDistro..."
@@ -185,37 +242,60 @@ $installedDistros = Get-WslDistroList
 $alreadyInstalled = $installedDistros | Where-Object { $_ -eq $WslDistro }
 
 if (-not $alreadyInstalled) {
-    Write-Info "Running: wsl --install -d $WslDistro --no-launch"
-    $installOut = & "$env:SystemRoot\System32\wsl.exe" --install -d $WslDistro --no-launch 2>&1
-    Write-Info ($installOut | Out-String).Trim()
-    Write-Info "Distro installation initiated."
+    # Prefer --web-download (bypasses Store/Windows Update, downloads directly
+    # from CDN). Fall back to plain --install if the flag is not recognised
+    # (older wsl.exe builds).
+    Write-Info "Running: wsl --install -d $WslDistro --web-download --no-launch"
+    $installOut = & "$env:SystemRoot\System32\wsl.exe" --install -d $WslDistro --web-download --no-launch 2>&1
+    $installStr = ($installOut | Out-String).Trim()
+    Write-Info $installStr
+
+    if ($LASTEXITCODE -ne 0 -or $installStr -match 'unknown option|Invalid argument') {
+        Write-Warn "--web-download not supported; retrying without it..."
+        $installOut = & "$env:SystemRoot\System32\wsl.exe" --install -d $WslDistro --no-launch 2>&1
+        Write-Info ($installOut | Out-String).Trim()
+    }
 } else {
     Write-Info "Distro '$WslDistro' is already installed."
 }
 
-# -- 5. Wait for distro to become available -------------------------------------
+# -- 5. Wait for distro to become available ------------------------------------
+# wsl --install with --no-launch is synchronous when using --web-download, but
+# may be asynchronous on older builds.  Poll for up to 5 minutes before trying
+# the direct rootfs fallback.
 Write-Step "Waiting for '$WslDistro' to be ready..."
-$deadline = (Get-Date).AddMinutes(15)
-$ready    = $false
-$lastStatus = ''
-while ((Get-Date) -lt $deadline) {
+$pollDeadline = (Get-Date).AddMinutes(5)
+$ready        = $false
+$lastStatus   = ''
+while ((Get-Date) -lt $pollDeadline) {
     $distros = Get-WslDistroList
-    if ($distros -contains $WslDistro) {
-        $ready = $true; break
-    }
-    # Also accept a partial match in verbose output (distro may show as 'Installing')
+    if ($distros -contains $WslDistro) { $ready = $true; break }
     $verbose = Get-WslDistroListVerbose
-    if ($verbose -match [regex]::Escape($WslDistro)) {
-        $ready = $true; break
-    }
+    if ($verbose -match [regex]::Escape($WslDistro)) { $ready = $true; break }
     $status = "Installed: [$($distros -join ', ')]"
     if ($status -ne $lastStatus) { Write-Info $status; $lastStatus = $status }
     Start-Sleep -Seconds 8
 }
+
 if (-not $ready) {
-    # Print current WSL state to help diagnose
+    Write-Warn "Distro not registered after 5 minutes; trying direct rootfs install..."
+    if (Install-WslDistroViaRootfs -Distro $WslDistro) {
+        # Brief wait for WSL to register the imported distro
+        Start-Sleep -Seconds 5
+        $distros = Get-WslDistroList
+        if ($distros -contains $WslDistro) {
+            $ready = $true
+            Write-Info "Rootfs import succeeded."
+        }
+    }
+}
+
+if (-not $ready) {
     Write-Host (Get-WslDistroListVerbose) -ForegroundColor DarkGray
-    Abort "Timed out waiting for '$WslDistro' to appear in WSL.`nRun 'wsl --install -d $WslDistro' in a new terminal and re-run this script."
+    Abort ("Could not install WSL distro '$WslDistro'.`n" +
+           "Try running manually in a new terminal:`n" +
+           "  wsl --install -d $WslDistro --web-download`n" +
+           "Then re-run this script.")
 }
 
 # Some distros need an initial boot to finish unpacking before root is accessible

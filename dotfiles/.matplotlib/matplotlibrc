@@ -1,0 +1,4 @@
+font.family: serif
+font.serif: Times New Roman
+mathtext.fontset: cm
+text.usetex: False
