@@ -326,6 +326,7 @@ USE_UV=false
 INSTALL_VSCODE=false
 INSTALL_FONTS=false
 INSTALL_KITTY=false
+INSTALL_DOCKER=false
 INSTALL_PODMAN=false
 INSTALL_RUST=false
 INSTALL_RUST_WASM=false
@@ -344,6 +345,7 @@ while true; do
     _vc=$( $INSTALL_VSCODE       && echo on || echo off)
     _fn=$( $INSTALL_FONTS        && echo on || echo off)
     _kt=$( $INSTALL_KITTY        && echo on || echo off)
+    _d=$(  $INSTALL_DOCKER       && echo on || echo off)
     _p=$(  $INSTALL_PODMAN       && echo on || echo off)
     _r=$(  $INSTALL_RUST         && echo on || echo off)
     _rw=$( $INSTALL_RUST_WASM    && echo on || echo off)
@@ -357,17 +359,18 @@ while true; do
         --checklist \
 "Select components to install.  Space = toggle,  Enter = confirm.\n\
   Rust sub-items (WASM/Nightly/Typst) automatically enable Rust.\n\
-  Selecting Cross automatically enables Podman + Rust." \
-        0 0 12 \
+  Cross needs Rust + Docker or Podman (enables Docker if neither)." \
+        0 0 13 \
         "VSCODE"       "VS Code editor"                       "$_vc" \
         "FONTS"        "Nerd Fonts (CascadiaCode, Meslo)"     "$_fn" \
         "KITTY"        "Kitty terminal emulator"              "$_kt" \
+        "DOCKER"       "Docker (container engine)"            "$_d"  \
         "PODMAN"       "Podman (container engine)"            "$_p"  \
         "RUST"         "Rust toolchain (rustup)"              "$_r"  \
         "RUST_WASM"    "  +- WASM target (wasm32-unknown)"   "$_rw" \
         "RUST_NIGHTLY" "  +- Nightly toolchain"              "$_rn" \
         "TYPST"        "  +- Typst document compiler"        "$_ty" \
-        "CROSS"        "  +- Cross (needs Podman + Rust)"    "$_cx" \
+        "CROSS"        "  +- Cross (Rust + Docker/Podman)"   "$_cx" \
         "NODEJS"       "Node.js LTS (via nvm)"               "$_nj" \
         2>"$TMP"
 
@@ -378,6 +381,7 @@ while true; do
     INSTALL_VSCODE=false;       selected VSCODE       "$TOOLS" && INSTALL_VSCODE=true
     INSTALL_FONTS=false;        selected FONTS        "$TOOLS" && INSTALL_FONTS=true
     INSTALL_KITTY=false;        selected KITTY        "$TOOLS" && INSTALL_KITTY=true
+    INSTALL_DOCKER=false;       selected DOCKER       "$TOOLS" && INSTALL_DOCKER=true
     INSTALL_PODMAN=false;       selected PODMAN       "$TOOLS" && INSTALL_PODMAN=true
     INSTALL_RUST=false;         selected RUST         "$TOOLS" && INSTALL_RUST=true
     INSTALL_RUST_WASM=false;    selected RUST_WASM    "$TOOLS" && INSTALL_RUST_WASM=true
@@ -391,10 +395,13 @@ while true; do
         INSTALL_RUST=true
     fi
 
-    # Cross requires Podman + Rust - auto-enable both.
+    # Cross requires Rust + a container engine. Docker is preferred since
+    # cross does not work well with Podman yet.
     if $INSTALL_CROSS; then
-        INSTALL_PODMAN=true
         INSTALL_RUST=true
+        if ! $INSTALL_DOCKER && ! $INSTALL_PODMAN; then
+            INSTALL_DOCKER=true
+        fi
     fi
 
     break
@@ -421,6 +428,7 @@ Python backend  : $PY_BACKEND
 VS Code         : $(yn $INSTALL_VSCODE)
 Nerd Fonts      : $(yn $INSTALL_FONTS)
 Kitty terminal  : $(yn $INSTALL_KITTY)
+Docker          : $(yn $INSTALL_DOCKER)
 Podman          : $(yn $INSTALL_PODMAN)
 Rust            : $(yn $INSTALL_RUST)
   WASM target   : $(yn $INSTALL_RUST_WASM)
@@ -486,6 +494,7 @@ USE_UV=$USE_UV
 INSTALL_VSCODE=$INSTALL_VSCODE
 INSTALL_FONTS=$INSTALL_FONTS
 INSTALL_KITTY=$INSTALL_KITTY
+INSTALL_DOCKER=$INSTALL_DOCKER
 INSTALL_PODMAN=$INSTALL_PODMAN
 INSTALL_RUST=$INSTALL_RUST
 INSTALL_RUST_WASM=$INSTALL_RUST_WASM

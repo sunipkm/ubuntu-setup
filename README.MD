@@ -125,8 +125,9 @@ Running the generated snapshot script will:
 
 - [lazygit](https://github.com/jesseduffield/lazygit) — TUI git client.
 - [termdown](https://github.com/trehn/termdown) (Linux) / `countdown` (macOS) — terminal countdown timer.
+- [Docker](https://www.docker.com/) (optional) — container runtime (recommended for `cross`).
 - [Podman](https://podman.io/) (optional) — container runtime.
-- [`cross`](https://github.com/cross-rs/cross) (optional, requires Rust + Podman) — cross-compilation tool.
+- [`cross`](https://github.com/cross-rs/cross) (optional, requires Rust + Docker or Podman) — cross-compilation tool.
 - Dotfiles copied to `~/`.
 
 ---
@@ -164,7 +165,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/sun
    - Hostname, Git name / email
    - Optional GPG secret key file
    - WSL distribution, Linux username & password
-   - Optional components (Rust, Node.js, Podman, …)
+   - Optional components (Rust, Node.js, Docker, Podman, …)
 3. The **unattended installer** (`install.ps1`) runs and:
    - Installs **VS Code** and all extensions from `extensions.txt`.
    - Installs **Nerd Fonts** (CaskaydiaCove, Meslo LGS) and **Aptos** into the Windows user font directory.

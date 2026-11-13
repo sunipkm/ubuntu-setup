@@ -270,6 +270,7 @@ eval "$(zoxide init zsh)"
 # export GOBIN=$GOPATH/bin
 # export PATH=$PATH:$GOBIN
 
+### PYTHON ENV ### (managed by ubuntu-setup; rewritten for the chosen backend at install)
 # Activate Python environment: prefer .venv in current dir, then repo root, then uv/miniconda
 if [[ -f "$PWD/.venv/bin/activate" ]]; then
     source "$PWD/.venv/bin/activate"
@@ -279,11 +280,12 @@ else
         source "$_git_top/.venv/bin/activate"
     elif [[ -f "$HOME/.uvpython3/bin/activate" ]]; then
         source "$HOME/.uvpython3/bin/activate"
-    else
+    elif [[ -f "$HOME/.miniconda3/bin/activate" ]]; then
         source "$HOME/.miniconda3/bin/activate"
     fi
     unset _git_top
 fi
+### END PYTHON ENV ###
 
 #LD_LIBRARY_PATH
 

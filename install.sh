@@ -84,6 +84,7 @@ USE_UV="${USE_UV:-false}"
 INSTALL_VSCODE="${INSTALL_VSCODE:-$IS_INTERACTIVE}"
 INSTALL_FONTS="${INSTALL_FONTS:-$IS_INTERACTIVE}"
 INSTALL_KITTY="${INSTALL_KITTY:-$IS_INTERACTIVE}"
+INSTALL_DOCKER="${INSTALL_DOCKER:-false}"
 INSTALL_PODMAN="${INSTALL_PODMAN:-false}"
 INSTALL_RUST="${INSTALL_RUST:-false}"
 INSTALL_RUST_WASM="${INSTALL_RUST_WASM:-false}"
@@ -104,11 +105,14 @@ PLATFORM=$(uname -s)
 ARCH=$(uname -m)
 
 IS_MACOS=false; IS_DEBIAN=false; IS_ARCHLINUX=false; IS_FEDORA=false
+IS_WSL=false
+grep -qiE "microsoft|wsl" /proc/version 2>/dev/null && IS_WSL=true
 
 MACOS()    { [[ "$IS_MACOS"     == true ]]; }
 DEBIAN()   { [[ "$IS_DEBIAN"    == true ]]; }
 ARCHLINUX(){ [[ "$IS_ARCHLINUX" == true ]]; }
 FEDORA()   { [[ "$IS_FEDORA"    == true ]]; }
+WSL()      { [[ "$IS_WSL"       == true ]]; }
 INTERACTIVE() { [[ "$IS_INTERACTIVE" == true ]]; }
 
 if [[ "$PLATFORM" == "Linux" ]]; then
@@ -199,16 +203,40 @@ $UPGRADE
 # ── Essential build tools ─────────────────────────────────────────────────────
 ohai "Installing essential build tools"
 if MACOS; then
-    $INSTALL wget gnupg pkg-config libusb gfortran pv
+    $INSTALL wget gnupg pinentry-mac pkg-config libusb gfortran pv
 elif DEBIAN; then
     $INSTALL build-essential pkg-config libusb-1.0-0-dev libclang-dev \
-             gfortran cifs-utils git git-lfs gnupg
+             gfortran cifs-utils git git-lfs gnupg pinentry-curses
 elif ARCHLINUX; then
     $INSTALL base-devel pkgconf libusb clang gcc-fortran cifs-utils \
-             wget python-pip git git-lfs gnupg
+             wget python-pip git git-lfs gnupg pinentry
 elif FEDORA; then
     $INSTALL gcc gcc-c++ make pkgconf-pkg-config libusbx-devel clang \
-             gcc-gfortran cifs-utils wget python3-pip git git-lfs gnupg2
+             gcc-gfortran cifs-utils wget python3-pip git git-lfs gnupg2 pinentry
+fi
+
+# ── gpg-agent pinentry ────────────────────────────────────────────────────────
+# Without a pinentry-program, gpg-agent cannot prompt for the key passphrase
+# (e.g. when git signs a commit).
+mkdir -p "$HOME/.gnupg" && chmod 700 "$HOME/.gnupg"
+if MACOS; then
+    PINENTRY_BIN="$(brew --prefix)/bin/pinentry-mac"
+else
+    PINENTRY_BIN="$(command -v pinentry-curses || command -v pinentry || true)"
+fi
+if [[ -n "$PINENTRY_BIN" && -x "$PINENTRY_BIN" ]]; then
+    GPG_AGENT_CONF="$HOME/.gnupg/gpg-agent.conf"
+    touch "$GPG_AGENT_CONF"
+    if grep -q '^pinentry-program' "$GPG_AGENT_CONF"; then
+        sed -i.bak "s|^pinentry-program.*|pinentry-program $PINENTRY_BIN|" "$GPG_AGENT_CONF" \
+            && rm -f "$GPG_AGENT_CONF.bak"
+    else
+        echo "pinentry-program $PINENTRY_BIN" >> "$GPG_AGENT_CONF"
+    fi
+    gpgconf --kill gpg-agent &>/dev/null || true
+    info "gpg-agent configured to use $PINENTRY_BIN"
+else
+    warn "No pinentry program found; GPG passphrase prompts may fail."
 fi
 
 # ── rsync ─────────────────────────────────────────────────────────────────────
@@ -389,6 +417,30 @@ elif [[ "$INSTALL_PODMAN" == true ]]; then
     $INSTALL podman && PODMAN_INSTALLED=true || warn "Podman install failed."
 fi
 
+# ── Docker ─────────────────────────────────────────────────────────────────────
+DOCKER_INSTALLED=false
+if command -v docker &>/dev/null; then
+    DOCKER_INSTALLED=true
+elif [[ "$INSTALL_DOCKER" == true ]]; then
+    ohai "Installing Docker"
+    if (DEBIAN || FEDORA) && ! WSL; then
+        curl -fsSL https://get.docker.com -o "$WORK_DIR/get-docker.sh" \
+            && execute_sudo sh "$WORK_DIR/get-docker.sh" && DOCKER_INSTALLED=true
+    elif ARCHLINUX && ! WSL; then
+        $INSTALL docker docker-buildx && DOCKER_INSTALLED=true
+    elif MACOS; then
+        brew install --cask docker-desktop && DOCKER_INSTALLED=true
+    elif WSL; then
+        warn "On WSL, install Docker Desktop on Windows and enable WSL integration instead."
+    fi
+    if $DOCKER_INSTALLED && ! MACOS; then
+        execute_sudo systemctl enable --now docker || true
+        execute_sudo usermod -aG docker "$USER" \
+            && info "Added $USER to the docker group (log out and back in to take effect)."
+    fi
+    $DOCKER_INSTALLED || warn "Docker install failed."
+fi
+
 # ── Rust toolchain ─────────────────────────────────────────────────────────────
 RUST_INSTALLED=false
 if [[ -f "$HOME/.cargo/env" ]]; then
@@ -417,7 +469,7 @@ if $RUST_INSTALLED; then
 fi
 
 # ── Cross ──────────────────────────────────────────────────────────────────────
-if [[ "$INSTALL_CROSS" == true ]] && $RUST_INSTALLED && $PODMAN_INSTALLED; then
+if [[ "$INSTALL_CROSS" == true ]] && $RUST_INSTALLED && { $DOCKER_INSTALLED || $PODMAN_INSTALLED; }; then
     if ! command -v cross &>/dev/null; then
         ohai "Installing cross"
         cargo install cross --git https://github.com/cross-rs/cross
@@ -624,16 +676,22 @@ if [[ "$USE_UV" == true ]]; then
         UV_PYTHON=$(UV_PYTHON_INSTALL_DIR="$HOME/.local/uvpython" uv python find 3.13)
     fi
     UV_VENV="$HOME/.uvpython3"
-    uv venv "$UV_VENV" --python "$UV_PYTHON"
+    # Recreate the venv if it is missing or broken (e.g. an interrupted run)
+    if ! "$UV_VENV/bin/python" -c 'import sys' &>/dev/null; then
+        rm -rf "$UV_VENV"
+        uv venv "$UV_VENV" --python "$UV_PYTHON"
+    fi
     export PATH="$UV_VENV/bin:$PATH"
     PIP_INSTALL="uv pip install --python $UV_VENV"
 else
-    if [[ ! -f "$HOME/.miniconda3/bin/activate" ]]; then
+    # -u lets the installer repair a partial install from an interrupted run
+    if ! "$HOME/.miniconda3/bin/python" -c 'import sys' &>/dev/null; then
         if DEBIAN || ARCHLINUX || FEDORA; then MINICONDA_INSTALLER="Miniconda3-latest-Linux-${ARCH}.sh"
         elif MACOS;                         then MINICONDA_INSTALLER="Miniconda3-latest-MacOSX-${ARCH}.sh"
         fi
-        curl -Lo "$WORK_DIR/$MINICONDA_INSTALLER" \
-            "https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER"
+        curl -fLo "$WORK_DIR/$MINICONDA_INSTALLER" \
+            "https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER" \
+            || abort "Failed to download $MINICONDA_INSTALLER"
         chmod +x "$WORK_DIR/$MINICONDA_INSTALLER"
         "$WORK_DIR/$MINICONDA_INSTALLER" -b -u -p "$HOME/.miniconda3"
         # shellcheck source=/dev/null
@@ -645,6 +703,87 @@ else
     fi
     PIP_INSTALL="pip install"
 fi
+
+# ── Python env startup in ~/.zshrc ────────────────────────────────────────────
+# Ensures ~/.zshrc activates the chosen Python backend (uv venv or Miniconda)
+# through a single managed block, replacing older/legacy copies of it, and
+# verifies that zsh actually resolves `python` to that environment.
+# Usage: ensure_python_startup true|false   (true = uv, false = Miniconda)
+ensure_python_startup() {
+    local use_uv="$1" zshrc="$HOME/.zshrc" env_dir backend
+    if [[ "$use_uv" == true ]]; then
+        env_dir="$HOME/.uvpython3"; backend=uv
+    else
+        env_dir="$HOME/.miniconda3"; backend=miniconda
+    fi
+    ohai "Checking Python ($backend) startup in .zshrc"
+
+    if ! "$env_dir/bin/python" -c 'import sys' &>/dev/null; then
+        warn "$env_dir/bin/python does not run; the $backend install looks incomplete. Re-run the installer."
+    fi
+    if [[ ! -f "$zshrc" ]]; then
+        warn "$zshrc not found (dotfiles install failed?); creating one with only the Python block."
+        touch "$zshrc"
+    fi
+
+    local block tmp
+    tmp=$(mktemp)
+    block=$(cat <<EOF
+### PYTHON ENV ### (managed by ubuntu-setup: $backend)
+# Activate Python environment: prefer .venv in current dir, then repo root, then the default env
+if [[ -f "\$PWD/.venv/bin/activate" ]]; then
+    source "\$PWD/.venv/bin/activate"
+else
+    _git_top=\$(git rev-parse --show-superproject-working-tree --show-toplevel 2>/dev/null | head -1)
+    if [[ -n "\$_git_top" && -f "\$_git_top/.venv/bin/activate" ]]; then
+        source "\$_git_top/.venv/bin/activate"
+    elif [[ -f "$env_dir/bin/activate" ]]; then
+        source "$env_dir/bin/activate"
+    fi
+    unset _git_top
+fi
+### END PYTHON ENV ###
+EOF
+)
+    # Drop any existing managed block, the legacy unmarked block (from the
+    # "# Activate Python environment" comment to the first column-0 "fi"),
+    # and - for uv - a `conda init` block, which would activate conda on top.
+    # The new block goes where the first removed block was, else at the end.
+    BLOCK="$block" awk -v strip_conda="$use_uv" '
+        function emit() { if (!done) { print ENVIRON["BLOCK"]; done = 1 } }
+        skip == "managed" { if ($0 ~ /^### END PYTHON ENV ###/) skip = ""; next }
+        skip == "legacy"  { if ($0 ~ /^fi[[:space:]]*$/) skip = ""; next }
+        skip == "conda"   { if ($0 ~ /^# <<< conda initialize <<</) skip = ""; next }
+        /^### PYTHON ENV ###/                { emit(); skip = "managed"; next }
+        /^# Activate Python environment/     { emit(); skip = "legacy";  next }
+        strip_conda == "true" && /^# >>> conda initialize >>>/ { skip = "conda"; next }
+        { print }
+        END { if (!done) { print ""; print ENVIRON["BLOCK"] } }
+    ' "$zshrc" >"$tmp"
+
+    if [[ -n "$(tail -c1 "$tmp")" ]]; then echo >>"$tmp"; fi
+    if ! cmp -s "$tmp" "$zshrc"; then
+        cp "$zshrc" "$zshrc.pre-python-env"
+        cat "$tmp" >"$zshrc"   # keep inode/symlink of an existing .zshrc
+        info "Updated Python ($backend) block in $zshrc (backup: $zshrc.pre-python-env)."
+    else
+        info "Python ($backend) block in $zshrc is up to date."
+    fi
+    rm -f "$tmp"
+
+    # Verify: run just the managed block in a clean zsh from $HOME.
+    if command -v zsh &>/dev/null; then
+        local resolved
+        resolved=$(CDPATH= cd "$HOME" && zsh -f -c "$block"$'\n''command -v python' 2>/dev/null)
+        if [[ "$resolved" == "$env_dir/"* ]]; then
+            info "zsh resolves python to $resolved"
+        else
+            warn "zsh resolves python to '${resolved:-nothing}', expected $env_dir/bin/python."
+        fi
+    fi
+}
+
+ensure_python_startup "$USE_UV"
 
 ohai "Installing Python packages"
 $PIP_INSTALL numpy matplotlib xarray dask netcdf4 astropy scipy \

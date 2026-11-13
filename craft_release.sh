@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Craft a release: build the artifact, tag, push, and publish to GitHub
+# Craft a release: create and push the tag. The Release workflow
+# (.github/workflows/release.yml) builds dotfiles_installer.sh and publishes it.
 # the directory of the script
 PDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -23,12 +24,6 @@ fi
 IS_PRERELEASE=false
 if [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-pre[0-9]+$ ]]; then
     IS_PRERELEASE=true
-fi
-
-# Check that gh CLI is available
-if ! command -v gh &>/dev/null; then
-    echo "Error: GitHub CLI (gh) is not installed or not in PATH"
-    exit 1
 fi
 
 # Fail if there are uncommitted changes
@@ -66,35 +61,6 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-# Build the artifact using the existing build script
-echo "Building artifact..."
-"$PDIR/build_dotfiles_installer.sh" "$RELEASE_TAG"
-if [[ $? -ne 0 ]]; then
-    echo "Error: build_dotfiles_installer.sh failed"
-    exit 1
-fi
-
-# Delete existing GitHub release if present, then recreate
-echo "Creating GitHub release $RELEASE_TAG..."
-if gh release view "$RELEASE_TAG" &>/dev/null; then
-    echo "Release $RELEASE_TAG already exists on GitHub — deleting..."
-    gh release delete "$RELEASE_TAG" --yes
-fi
-if [[ "$IS_PRERELEASE" == true ]]; then
-    gh release create "$RELEASE_TAG" "$PDIR/dotfiles_installer.sh" \
-        --title "$RELEASE_TAG" \
-        --notes "Pre-release $RELEASE_TAG" \
-        --prerelease
-else
-    gh release create "$RELEASE_TAG" "$PDIR/dotfiles_installer.sh" \
-        --title "$RELEASE_TAG" \
-        --notes "Release $RELEASE_TAG" \
-        --verify-tag
-fi
-
-if [[ $? -ne 0 ]]; then
-    echo "Error: Failed to create GitHub release for tag '$RELEASE_TAG'"
-    exit 1
-fi
-
-echo "Release $RELEASE_TAG created successfully!"
+REPO_URL=$(git -C "$PDIR" remote get-url origin | sed -E 's#^git@github.com:#https://github.com/#; s#\.git$##')
+echo "Tag $RELEASE_TAG pushed. The Release workflow will build and publish it:"
+echo "  $REPO_URL/actions/workflows/release.yml"
