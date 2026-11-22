@@ -143,9 +143,13 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
         echo "auth       sufficient     pam_tid.so" | sudo tee -a "$SUDO_LOCAL" >/dev/null
     fi
 
-    # Homebrew
+    # Homebrew: never stop to ask. Ask mode is the default since Homebrew 5
+    # (prompts whenever an install pulls in dependencies); NONINTERACTIVE skips
+    # the installer's "Press RETURN" prompt (it needs cached sudo credentials).
+    export HOMEBREW_NO_ASK=1 HOMEBREW_NO_ENV_HINTS=1 NONINTERACTIVE=1
     if ! command -v brew &>/dev/null; then
         ohai "Installing Homebrew..."
+        /usr/bin/sudo -v || abort "Need sudo access to install Homebrew."
         cd "$WORK_DIR"
         curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh \
             --output brew_install.sh
@@ -177,8 +181,31 @@ elif ARCHLINUX; then
 elif FEDORA; then
     $INSTALL git git-lfs gnupg2 dialog curl
 elif MACOS; then
-    # git ships with Xcode tools; brew dialog is the TUI toolkit
-    $INSTALL dialog
+    # git ships with Xcode tools; brew dialog is the TUI toolkit.
+    # macOS has no gpg: configure.sh needs gnupg + pinentry-mac to import a key.
+    $INSTALL dialog gnupg pinentry-mac
+fi
+
+# ── gpg-agent pinentry ─────────────────────────────────────────────────────────
+# configure.sh imports the GPG secret key; gpg-agent needs a pinentry it can
+# actually show (a GUI one on macOS, since dialog owns the terminal) to ask
+# for the key's passphrase.
+mkdir -p "$HOME/.gnupg" && chmod 700 "$HOME/.gnupg"
+if MACOS; then
+    PINENTRY_BIN="$(brew --prefix)/bin/pinentry-mac"
+else
+    PINENTRY_BIN="$(command -v pinentry-curses || command -v pinentry || true)"
+fi
+if [[ -n "$PINENTRY_BIN" && -x "$PINENTRY_BIN" ]]; then
+    GPG_AGENT_CONF="$HOME/.gnupg/gpg-agent.conf"
+    touch "$GPG_AGENT_CONF"
+    if grep -q '^pinentry-program' "$GPG_AGENT_CONF"; then
+        sed -i.bak "s|^pinentry-program.*|pinentry-program $PINENTRY_BIN|" "$GPG_AGENT_CONF" \
+            && rm -f "$GPG_AGENT_CONF.bak"
+    else
+        echo "pinentry-program $PINENTRY_BIN" >> "$GPG_AGENT_CONF"
+    fi
+    gpgconf --kill gpg-agent &>/dev/null || true
 fi
 
 # ── Locate or download configure.sh ───────────────────────────────────────────

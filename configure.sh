@@ -120,8 +120,18 @@ if $GPG_IMPORT; then
     done
 fi
 
+if $GPG_IMPORT && ! command -v gpg &>/dev/null; then
+    d_error "gpg is not installed, so the key cannot be imported.\n\
+Install gnupg (macOS: brew install gnupg pinentry-mac) and re-run.\n\
+Git name/email must be entered manually."
+    GPG_IMPORT=false
+fi
+
 if $GPG_IMPORT; then
-    if gpg --batch --import "$GPG_KEY_FILE" 2>/dev/null; then
+    export GPG_TTY="${GPG_TTY:-$(tty 2>/dev/null)}"
+    GPG_ERR=$(mktemp)
+    if gpg --batch --import "$GPG_KEY_FILE" 2>"$GPG_ERR" \
+        && gpg --list-secret-keys --with-colons 2>/dev/null | grep -q '^sec'; then
         GPG_FINGERPRINT=$(gpg --list-secret-keys --with-colons 2>/dev/null \
             | awk -F: '/^fpr/{print $10; exit}')
         if [[ -n "$GPG_FINGERPRINT" ]]; then
@@ -155,9 +165,10 @@ Git configured:\n\
             GPG_FINGERPRINT=""
         fi
     else
-        d_error "GPG import failed.\nCheck that the file is a valid exported secret key.\nGit name/email must be entered manually."
+        d_error "GPG import failed:\n\n$(tail -n 5 "$GPG_ERR")\n\nGit name/email must be entered manually."
         GPG_IMPORT=false
     fi
+    rm -f "$GPG_ERR"
 fi
 
 # -- Git configuration (skipped if GPG import provided name + email) ------------

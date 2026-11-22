@@ -153,8 +153,12 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
         ohai "Enabling Touch ID for sudo..."
         echo "auth       sufficient     pam_tid.so" | sudo tee -a "$SUDO_LOCAL" >/dev/null
     fi
+    # Never stop to ask: Homebrew's default ask mode prompts whenever an install
+    # pulls in dependencies; NONINTERACTIVE skips the installer's RETURN prompt.
+    export HOMEBREW_NO_ASK=1 HOMEBREW_NO_ENV_HINTS=1 NONINTERACTIVE=1
     if ! command -v brew &>/dev/null; then
         ohai "Installing Homebrew..."
+        /usr/bin/sudo -v || abort "Need sudo access to install Homebrew."
         curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh \
             --output "$WORK_DIR/brew_install.sh"
         bash "$WORK_DIR/brew_install.sh"
@@ -784,6 +788,23 @@ EOF
 }
 
 ensure_python_startup "$USE_UV"
+
+# ── VS Code default interpreter ───────────────────────────────────────────────
+# The shipped settings.json points python.defaultInterpreterPath at Miniconda;
+# rewrite it in every VS Code settings file to the backend actually installed.
+if [[ "$USE_UV" == true ]]; then VSCODE_PY="~/.uvpython3/bin/python"
+else                             VSCODE_PY="~/.miniconda3/bin/python"; fi
+for _vsc in "$HOME/.config/Code/User/settings.json" \
+            "$HOME/.config/Code - OSS/User/settings.json" \
+            "$HOME/Library/Application Support/Code/User/settings.json"; do
+    [[ -f "$_vsc" ]] || continue
+    if grep -q '"python.defaultInterpreterPath"' "$_vsc"; then
+        sed -i.bak -E "s|(\"python\.defaultInterpreterPath\"[[:space:]]*:[[:space:]]*)\"[^\"]*\"|\1\"$VSCODE_PY\"|" "$_vsc" \
+            && rm -f "$_vsc.bak"
+        info "VS Code interpreter set to $VSCODE_PY in $_vsc"
+    fi
+done
+unset _vsc
 
 ohai "Installing Python packages"
 $PIP_INSTALL numpy matplotlib xarray dask netcdf4 astropy scipy \

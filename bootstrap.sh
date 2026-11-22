@@ -251,6 +251,10 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
     fi
     ohai "Enabling touch ID for sudo..."
     echo "auth       sufficient     pam_tid.so" | sudo tee -a /etc/pam.d/sudo_local
+    # Never stop to ask: Homebrew's default ask mode prompts whenever an install
+    # pulls in dependencies; NONINTERACTIVE skips the installer's RETURN prompt.
+    export HOMEBREW_NO_ASK=1 HOMEBREW_NO_ENV_HINTS=1 NONINTERACTIVE=1
+    sudo -v
     # Install Homebrew if not already installed
     if ! command -v brew &>/dev/null; then
         echo "Installing Homebrew..."
