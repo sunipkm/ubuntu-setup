@@ -809,26 +809,44 @@ EOF
 
 ensure_python_startup "$USE_UV"
 
-# ── VS Code default interpreter ───────────────────────────────────────────────
-# The shipped settings.json points python.defaultInterpreterPath at Miniconda;
-# rewrite it in every VS Code settings file to the backend actually installed.
-if [[ "$USE_UV" == true ]]; then VSCODE_PY="~/.uvpython3/bin/python"
-else                             VSCODE_PY="~/.miniconda3/bin/python"; fi
+# ── VS Code machine-specific paths ────────────────────────────────────────────
+# Some settings need absolute paths that differ per machine, so they are
+# written here rather than shipped in settings.json:
+#   python.defaultInterpreterPath - the Python backend actually installed
+#                                   (VS Code does not expand "~" here)
+#   todo-tree.ripgrep.ripgrep     - Todo Tree can no longer find the ripgrep
+#                                   VS Code used to bundle; use the system one
+# vscode_set KEY VALUE FILE : replace KEY's string value, or add it at the top.
+vscode_set() {
+    local key="$1" val="$2" file="$3" key_re
+    key_re=$(printf '%s' "$key" | sed 's/\./\\./g')
+    if grep -q "\"$key\"" "$file"; then
+        sed -i.bak -E "s|(\"$key_re\"[[:space:]]*:[[:space:]]*)\"[^\"]*\"|\1\"$val\"|" "$file"
+    else
+        local tmp; tmp=$(mktemp)
+        awk -v line="    \"$key\": \"$val\"," \
+            '{ print } !done && /^[[:space:]]*\{/ { print line; done = 1 }' \
+            "$file" >"$tmp" && cat "$tmp" >"$file"
+        rm -f "$tmp"
+    fi
+    rm -f "$file.bak"
+}
+if [[ "$USE_UV" == true ]]; then VSCODE_PY="$HOME/.uvpython3/bin/python"
+else                             VSCODE_PY="$HOME/.miniconda3/bin/python"; fi
+VSCODE_RG="$(command -v rg || true)"
 for _vsc in "$HOME/.config/Code/User/settings.json" \
             "$HOME/.config/Code - OSS/User/settings.json" \
             "$HOME/Library/Application Support/Code/User/settings.json"; do
     [[ -f "$_vsc" ]] || continue
-    if grep -q '"python.defaultInterpreterPath"' "$_vsc"; then
-        sed -i.bak -E "s|(\"python\.defaultInterpreterPath\"[[:space:]]*:[[:space:]]*)\"[^\"]*\"|\1\"$VSCODE_PY\"|" "$_vsc" \
-            && rm -f "$_vsc.bak"
-        info "VS Code interpreter set to $VSCODE_PY in $_vsc"
-    fi
+    vscode_set python.defaultInterpreterPath "$VSCODE_PY" "$_vsc"
+    [[ -n "$VSCODE_RG" ]] && vscode_set todo-tree.ripgrep.ripgrep "$VSCODE_RG" "$_vsc"
+    info "VS Code paths set in $_vsc (python: $VSCODE_PY, rg: ${VSCODE_RG:-not found})"
 done
 unset _vsc
 
 ohai "Installing Python packages"
 $PIP_INSTALL numpy matplotlib xarray dask netcdf4 astropy scipy \
-             scikit-image natsort fortls ipykernel jupyter
+             scikit-image natsort fortls ipykernel jupyter ruff pyright
 $PIP_INSTALL "skmpython@git+https://github.com/sunipkm/skmpython"
 
 # -- VS Code -------------------------------------------------------------------

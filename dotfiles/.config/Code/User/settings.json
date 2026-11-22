@@ -137,8 +137,11 @@
         "**/.ipynb_checkpoints": true
     },
     "[python]": {
-        "editor.formatOnType": true,
-        "editor.defaultFormatter": "ms-python.autopep8"
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports.ruff": "explicit"
+        }
     },
     "editor.inlineSuggest.enabled": true,
     "github.copilot.enable": {

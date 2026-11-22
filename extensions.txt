@@ -1,6 +1,7 @@
 ahnafnafee.postscript-preview
 alefragnani.read-only-indicator
 bbenoist.doxygen
+charliermarsh.ruff
 cpmcgrath.codealignment-vscode
 cschlosser.doxdocgen
 dan-c-underwood.arm
@@ -28,9 +29,7 @@ ms-azuretools.vscode-containers
 ms-dotnettools.csdevkit
 ms-dotnettools.csharp
 ms-dotnettools.vscode-dotnet-runtime
-ms-python.autopep8
 ms-python.debugpy
-ms-python.isort
 ms-python.python
 ms-python.vscode-pylance
 ms-python.vscode-python-envs
