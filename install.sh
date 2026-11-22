@@ -376,6 +376,26 @@ if [[ "$INSTALL_FONTS" == true ]]; then
         fi
         cd "$WORK_DIR"
     fi
+    # macOS does not reliably pick up fonts merely copied into ~/Library/Fonts:
+    # they stay invisible to apps (VS Code then falls back to a font without
+    # the Nerd Font icons). Register them with CoreText, as Font Book does.
+    # Fonts that are already registered are reported as failures; harmless.
+    if MACOS; then
+        info "Registering fonts with macOS..."
+        cat > "$WORK_DIR/register_fonts.js" <<'EOF'
+ObjC.import('CoreText');
+function run(argv) {
+  var urls = argv.map(function (p) { return $.NSURL.fileURLWithPath(p); });
+  $.CTFontManagerRegisterFontsForURLs($(urls), $.kCTFontManagerScopePersistent, null);
+}
+EOF
+        _FONTS=()
+        for font_file in "$FONT_TARGET_DIR"/*NerdFont*.ttf "$FONT_TARGET_DIR"/*Aptos*.ttf; do
+            [[ -f "$font_file" ]] && _FONTS+=("$font_file")
+        done
+        (( ${#_FONTS[@]} )) && osascript -l JavaScript "$WORK_DIR/register_fonts.js" "${_FONTS[@]}" >/dev/null 2>&1
+        unset _FONTS
+    fi
 fi
 
 # ── starship ───────────────────────────────────────────────────────────────────
