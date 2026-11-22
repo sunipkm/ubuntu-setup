@@ -901,7 +901,14 @@ elif MACOS; then
         sed -i '' "s/#HOMEBREW_IMPORT/eval \"\$\(\/usr\/local\/bin\/brew shellenv\)\"/g" $HOME/.zshrc
     fi
     sed -i '' "s/#HOMEBREW_COMPLETIONS/fpath\=\(\$fpath \"\$HOMEBREW_PREFIX\/share\/zsh\/site-functions\"\)/g" $HOME/.zshrc
-    echo 'include $HOMEBREW_CELLAR/nano/*/share/nano/*.nanorc' >>$HOME/.nanorc
+    # nano does not expand environment variables in `include`, so write the
+    # resolved path (share/nano is stable across nano versions, unlike Cellar).
+    # Replace any earlier include of Homebrew's syntax files instead of appending.
+    _NANO_INC="include \"$(brew --prefix)/share/nano/*.nanorc\""
+    touch "$HOME/.nanorc"
+    sed -i '' '/^include .*share\/nano\/\*\.nanorc/d' "$HOME/.nanorc"
+    echo "$_NANO_INC" >> "$HOME/.nanorc"
+    unset _NANO_INC
 fi
 
 if ! grep -q "### NVM INIT ###" "$HOME/.zshrc"; then
