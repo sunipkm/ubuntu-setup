@@ -262,16 +262,15 @@ printf "\n"
 ohai "Configuration saved to $CONFIG_FILE"
 
 if [[ -n "$INSTALL_SH" ]]; then
-    printf "${tty_bold}Run the full installation now?${tty_reset} [y/N] "
+    printf "${tty_bold}Run the full installation now?${tty_reset} [Y/n] "
     read -r response
     case "$response" in
-        [yY][eE][sS]|[yY])
-            ohai "Launching install.sh..."
-            exec bash "$INSTALL_SH" --config "$CONFIG_FILE"
+        [nN][oO]|[nN])
+            printf "\nTo run later, see the instructions at the top of %s\n\n" "$CONFIG_FILE"
             ;;
         *)
-            printf "\nTo run later:\n"
-            printf "  bash install.sh --config %s\n\n" "$CONFIG_FILE"
+            ohai "Launching install.sh..."
+            exec bash "$INSTALL_SH" --config "$CONFIG_FILE"
             ;;
     esac
 else
