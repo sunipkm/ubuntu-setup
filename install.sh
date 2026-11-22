@@ -67,6 +67,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Directory this script lives in (a local clone, or the temp dir setup.sh
+# downloaded it to); resolved now, before the script cd's elsewhere.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+
 [[ -f "$CONFIG_FILE" ]] || abort "Config file not found: $CONFIG_FILE\nRun configure.sh first."
 
 ohai "Loading config from $CONFIG_FILE"
@@ -148,8 +152,10 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
         xcode-select --install
         until xcode-select --print-path &>/dev/null; do sleep 5; done
     fi
+    # Touch ID for sudo. A clean macOS ships only sudo_local.template, so create
+    # the file when missing; skip if an active (uncommented) pam_tid line exists.
     SUDO_LOCAL=/etc/pam.d/sudo_local
-    if [[ -f "$SUDO_LOCAL" ]] && ! grep -q "pam_tid" "$SUDO_LOCAL" 2>/dev/null; then
+    if ! grep -qs '^auth.*pam_tid\.so' "$SUDO_LOCAL"; then
         ohai "Enabling Touch ID for sudo..."
         echo "auth       sufficient     pam_tid.so" | sudo tee -a "$SUDO_LOCAL" >/dev/null
     fi
@@ -891,7 +897,13 @@ if [[ "$INSTALL_VSCODE" == true ]]; then
         info "Skipping extension install — already restored from snapshot."
     else
         ohai "Installing VS Code extensions..."
-        _EXT_LIST=$(curl -fsSL "$EXTENSIONS_URL" | grep -v '^\s*$')
+        # Prefer the extension list next to this script (local clone), so
+        # unpushed edits apply; otherwise fetch it from the repository.
+        if [[ -f "$SCRIPT_DIR/extensions.txt" ]]; then
+            _EXT_LIST=$(grep -v '^\s*$' "$SCRIPT_DIR/extensions.txt")
+        else
+            _EXT_LIST=$(curl -fsSL "$EXTENSIONS_URL" | grep -v '^\s*$')
+        fi
         _EXT_TOTAL=$(echo "$_EXT_LIST" | wc -l | tr -d ' ')
         _EXT_IDX=0
         while IFS= read -r ext; do

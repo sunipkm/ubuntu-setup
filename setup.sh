@@ -136,9 +136,10 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
         until xcode-select --print-path &>/dev/null; do sleep 5; done
     fi
 
-    # Touch ID for sudo (best-effort; file may not exist on all macOS versions)
+    # Touch ID for sudo. A clean macOS ships only sudo_local.template, so create
+    # the file when missing; skip if an active (uncommented) pam_tid line exists.
     SUDO_LOCAL=/etc/pam.d/sudo_local
-    if [[ -f "$SUDO_LOCAL" ]] && ! grep -q "pam_tid" "$SUDO_LOCAL" 2>/dev/null; then
+    if ! grep -qs '^auth.*pam_tid\.so' "$SUDO_LOCAL"; then
         ohai "Enabling Touch ID for sudo..."
         echo "auth       sufficient     pam_tid.so" | sudo tee -a "$SUDO_LOCAL" >/dev/null
     fi

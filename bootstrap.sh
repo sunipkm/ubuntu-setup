@@ -249,8 +249,13 @@ elif [[ "$PLATFORM" == "Darwin" ]]; then
             sleep 5
         done
     fi
-    ohai "Enabling touch ID for sudo..."
-    echo "auth       sufficient     pam_tid.so" | sudo tee -a /etc/pam.d/sudo_local
+    # Touch ID for sudo. A clean macOS ships only sudo_local.template, so create
+    # the file when missing; skip if an active (uncommented) pam_tid line exists.
+    SUDO_LOCAL=/etc/pam.d/sudo_local
+    if ! grep -qs '^auth.*pam_tid\.so' "$SUDO_LOCAL"; then
+        ohai "Enabling Touch ID for sudo..."
+        echo "auth       sufficient     pam_tid.so" | sudo tee -a "$SUDO_LOCAL" >/dev/null
+    fi
     # Never stop to ask: Homebrew's default ask mode prompts whenever an install
     # pulls in dependencies; NONINTERACTIVE skips the installer's RETURN prompt.
     export HOMEBREW_NO_ASK=1 HOMEBREW_NO_ENV_HINTS=1 NONINTERACTIVE=1
